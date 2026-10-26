@@ -17,7 +17,8 @@ test("the popup lists every tooltip row once", () => {
         ...properties.filter(property => !borderColorProperties.includes(property)),
         "borderColor",
         "contrast",
-        "renderedFont"
+        "renderedFont",
+        "boxModel"
     ];
 
     assert.deepEqual([...keys].sort(), rows.sort());
@@ -27,4 +28,5 @@ test("propertyLabel shows CSS names and derived row names", () => {
     assert.equal(propertyLabel("backgroundColor"), "background-color");
     assert.equal(propertyLabel("contrast"), "WCAG contrast");
     assert.equal(propertyLabel("renderedFont"), "rendered font");
+    assert.equal(propertyLabel("boxModel"), "box model");
 });

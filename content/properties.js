@@ -4,8 +4,9 @@
  *
  * Keys are the tooltip's own row names: borderColor stands for the four
  * border-*-color rows, and contrast and renderedFont are worked out by
- * Scope rather than read from CSS. The setting stores the hidden keys, so
- * rows added later are shown by default.
+ * Scope rather than read from CSS. boxModel is the box model diagram below
+ * the rows. The setting stores the hidden keys, so rows added later are
+ * shown by default.
  */
 (function (Scope) {
     "use strict";
@@ -21,7 +22,16 @@
         },
         {
             title: "Box",
-            keys: ["margin", "padding", "width", "height", "boxSizing", "border", "borderRadius"]
+            keys: [
+                "margin",
+                "padding",
+                "width",
+                "height",
+                "boxSizing",
+                "border",
+                "borderRadius",
+                "boxModel"
+            ]
         },
         {
             title: "Layout",
@@ -44,7 +54,8 @@
 
     const derivedLabels = {
         contrast: "WCAG contrast",
-        renderedFont: "rendered font"
+        renderedFont: "rendered font",
+        boxModel: "box model"
     };
 
     // The CSS name for properties, as the tooltip shows them.

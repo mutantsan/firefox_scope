@@ -114,7 +114,8 @@ To choose which rows the tooltip shows, click the toolbar button and open
 **Tooltip rows**, then click a property to show or hide it. Hidden rows are
 hidden everywhere, including from "copy all", and an open tooltip updates
 straight away. Click a group's name to show or hide the whole group, or use
-**Show all** and **Hide all**.
+**Show all** and **Hide all**. The box model diagram is listed there too, as
+**box model** in the Box group.
 
 ## Install for development
 

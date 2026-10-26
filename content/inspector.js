@@ -185,7 +185,10 @@
         }
 
         tooltip.show(
-            [render.props(nodes), render.boxModel(el)],
+            [
+                render.props(nodes),
+                ...(hiddenProperties.has("boxModel") ? [] : [render.boxModel(el)])
+            ],
             copyAllText,
             mouseX,
             mouseY,
