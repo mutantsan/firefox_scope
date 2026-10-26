@@ -1,0 +1,372 @@
+:root {
+    color-scheme: light dark;
+    --bg: #f4f4f7;
+    --surface: #fff;
+    --fg: #15141a;
+    --muted: #5b5b66;
+    --line: rgb(21 20 26 / 0.1);
+    --accent: #e8700a;
+    --chip: #ececf0;
+    --accent-line: rgb(232 112 10 / 0.45);
+    --track: #c9c9d1;
+    --ok: #1f9d55;
+    --focus: #0061e0;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #1c1b22;
+        --surface: #2b2a33;
+        --fg: #fbfbfe;
+        --muted: #a8a8b3;
+        --line: rgb(251 251 254 / 0.08);
+        --accent: #f7931e;
+        --chip: #3a3944;
+        --accent-line: rgb(247 147 30 / 0.5);
+        --track: #52525e;
+        --ok: #3fd47a;
+        --focus: #00ddff;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    width: 340px;
+    margin: 0;
+    padding: 14px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px/1.4 system-ui, sans-serif;
+}
+
+/* Firefox for Android opens the popup as a full page. */
+@media (pointer: coarse) {
+    body {
+        width: auto;
+    }
+}
+
+:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+/* Header */
+
+.head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.head img {
+    flex: none;
+    border-radius: 8px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.2;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+#site {
+    overflow: hidden;
+    font-family: var(--mono);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--track);
+}
+
+.active .dot {
+    background: var(--ok);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent);
+}
+
+/* Cards of setting rows */
+
+.card {
+    margin-bottom: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.row + .row {
+    border-top: 1px solid var(--line);
+}
+
+.row-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.row-title {
+    display: block;
+    font-weight: 550;
+}
+
+.row-desc {
+    display: block;
+    margin-top: 1px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.unavailable #site-setting {
+    opacity: 0.55;
+    cursor: default;
+}
+
+kbd {
+    padding: 0 4px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    font: 11px var(--mono);
+}
+
+/* Toggle switch: a native checkbox, so keyboard and forms work as usual. */
+
+.switch {
+    flex: none;
+    position: relative;
+    width: 34px;
+    height: 20px;
+    margin: 0;
+    border-radius: 10px;
+    background: var(--track);
+    appearance: none;
+    cursor: inherit;
+    transition: background-color 0.15s;
+}
+
+.switch::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    transition: transform 0.15s;
+}
+
+.switch:checked {
+    background: var(--accent);
+}
+
+.switch:checked::before {
+    transform: translateX(14px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .switch,
+    .switch::before {
+        transition: none;
+    }
+}
+
+/* Tooltip rows */
+
+details {
+    padding: 0;
+}
+
+summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    list-style: none;
+    cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Chevron */
+summary::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    margin: 0 3px 3px 0;
+    border: solid var(--muted);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+}
+
+details[open] summary::after {
+    margin-bottom: -3px;
+    transform: rotate(-135deg);
+}
+
+summary .row-text {
+    flex: 1;
+}
+
+.panel {
+    padding: 2px 12px 12px;
+}
+
+.bulk {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    padding: 2px;
+    border-radius: 7px;
+    background: var(--bg);
+}
+
+.bulk button {
+    flex: 1;
+    padding: 4px 0;
+    border: none;
+    border-radius: 5px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.bulk button:hover {
+    background: var(--surface);
+    color: var(--fg);
+}
+
+fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+fieldset + fieldset {
+    margin-top: 10px;
+}
+
+/* The group name toggles the whole group. */
+.group-toggle {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.group-toggle:hover {
+    color: var(--fg);
+}
+
+.count {
+    font-weight: 400;
+    letter-spacing: 0;
+    opacity: 0.8;
+}
+
+.pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border: 1px dashed var(--track);
+    border-radius: 999px;
+    color: var(--muted);
+    font: 12px var(--mono);
+    cursor: pointer;
+    user-select: none;
+}
+
+.pill:hover {
+    border-color: var(--accent-line);
+}
+
+.pill input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Shown rows are filled; hidden ones only keep a dashed outline. */
+.pill:has(input:checked) {
+    border-style: solid;
+    border-color: transparent;
+    background: var(--chip);
+    color: var(--fg);
+}
+
+.pill:has(input:checked):hover {
+    border-color: var(--accent-line);
+}
+
+.pill:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+}
+
+/* Check mark, only on shown rows. */
+.pill::before {
+    content: "";
+    display: none;
+    width: 7px;
+    height: 4px;
+    margin: -2px 0 0 1px;
+    border: solid var(--accent);
+    border-width: 0 0 1.5px 1.5px;
+    transform: rotate(-45deg);
+}
+
+.pill:has(input:checked)::before {
+    display: block;
+}

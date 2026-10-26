@@ -1,8 +1,10 @@
 (async function () {
     "use strict";
 
-    const checkbox = document.getElementById("disabled");
+    const enabledSwitch = document.getElementById("enabled");
     const siteLabel = document.getElementById("site");
+    const siteDesc = document.getElementById("site-desc");
+    const status = document.getElementById("status");
     const showDefaultsCheckbox = document.getElementById("show-defaults");
 
     // Global, so it's set up before the site check below can bail out.
@@ -17,72 +19,120 @@
         });
     });
 
-    // One checkbox per tooltip row, unchecked when the row is hidden.
+    // One pill per tooltip row, unchecked when the row is hidden.
     const { propertyGroups, propertyLabel } = Scope.properties;
     const propertiesList = document.getElementById("properties");
+    const rowsCount = document.getElementById("rows-count");
 
     const { hiddenProperties = [] } =
         await browser.storage.local.get("hiddenProperties");
 
     const inputs = new Map();
+    const groupCounts = [];
+
+    function updateCounts() {
+        for (const { keys, count } of groupCounts) {
+            const shown = keys.filter(key => inputs.get(key).checked).length;
+            count.textContent = `${shown}/${keys.length}`;
+        }
+
+        const shown = [...inputs.values()].filter(input => input.checked);
+        rowsCount.textContent = `${shown.length} of ${inputs.size} shown`;
+    }
+
+    // One write per change, so a pinned tooltip redraws once. Re-read so a
+    // change made in another window isn't overwritten.
+    async function setShown(keys, shown) {
+        for (const key of keys) {
+            inputs.get(key).checked = shown;
+        }
+
+        updateCounts();
+
+        const { hiddenProperties = [] } =
+            await browser.storage.local.get("hiddenProperties");
+
+        const hidden = new Set(hiddenProperties);
+
+        for (const key of keys) {
+            if (shown) {
+                hidden.delete(key);
+            } else {
+                hidden.add(key);
+            }
+        }
+
+        await browser.storage.local.set({
+            hiddenProperties: [...hidden]
+        });
+    }
 
     for (const { title, keys } of propertyGroups) {
         const group = document.createElement("fieldset");
-        const legend = document.createElement("legend");
+        const toggle = document.createElement("button");
+        const count = document.createElement("span");
+        const pills = document.createElement("div");
 
-        legend.textContent = title;
-        group.append(legend);
+        // Shows the whole group, or hides it when it's all shown already.
+        toggle.type = "button";
+        toggle.className = "group-toggle";
+        toggle.title = `Show or hide all ${title.toLowerCase()} rows`;
+        count.className = "count";
+        toggle.append(title, count);
+
+        toggle.addEventListener("click", () => {
+            const allShown = keys.every(key => inputs.get(key).checked);
+            setShown(keys, !allShown);
+        });
+
+        pills.className = "pills";
 
         for (const key of keys) {
             const label = document.createElement("label");
             const input = document.createElement("input");
 
+            label.className = "pill";
             input.type = "checkbox";
             input.checked = !hiddenProperties.includes(key);
 
-            input.addEventListener("change", async () => {
-                // Re-read so a change made in another window isn't
-                // overwritten.
-                const { hiddenProperties = [] } =
-                    await browser.storage.local.get("hiddenProperties");
-
-                const hidden = new Set(hiddenProperties);
-
-                if (input.checked) {
-                    hidden.delete(key);
-                } else {
-                    hidden.add(key);
-                }
-
-                await browser.storage.local.set({
-                    hiddenProperties: [...hidden]
-                });
+            input.addEventListener("change", () => {
+                setShown([key], input.checked);
             });
 
             inputs.set(key, input);
             label.append(input, propertyLabel(key));
-            group.append(label);
+            pills.append(label);
         }
 
+        groupCounts.push({ keys, count });
+        group.append(toggle, pills);
         propertiesList.append(group);
     }
 
-    // One write for the whole list, so a pinned tooltip redraws once.
-    function setAllShown(shown) {
-        for (const input of inputs.values()) {
-            input.checked = shown;
-        }
-
-        browser.storage.local.set({
-            hiddenProperties: shown ? [] : [...inputs.keys()]
-        });
-    }
+    updateCounts();
 
     document.getElementById("show-all")
-        .addEventListener("click", () => setAllShown(true));
+        .addEventListener("click", () => setShown([...inputs.keys()], true));
 
     document.getElementById("hide-all")
-        .addEventListener("click", () => setAllShown(false));
+        .addEventListener("click", () => setShown([...inputs.keys()], false));
+
+    // Remembers whether the list was open, per browser profile.
+    const rowsDetails = document.getElementById("rows");
+
+    try {
+        rowsDetails.open = localStorage.getItem("rowsOpen") === "1";
+    } catch {
+        // Storage blocked; starts closed.
+    }
+
+    rowsDetails.addEventListener("toggle", () => {
+        try {
+            localStorage.setItem("rowsOpen", rowsDetails.open ? "1" : "0");
+        } catch {
+            // Not remembered.
+        }
+    });
 
     /*
      * Off by default, so Scope needs no access to sites until it's started.
@@ -110,10 +160,16 @@
     // removed this one.
     const commands = (await browser.commands?.getAll()) ?? [];
     const shortcut = commands.find(c => c.name === "start")?.shortcut;
+    const startHint = document.getElementById("start-hint");
 
-    document.getElementById("start-hint").textContent = shortcut
-        ? `Otherwise Scope starts when you open this panel or press ${shortcut}.`
-        : "Otherwise Scope starts when you open this panel.";
+    startHint.textContent = "Otherwise starts when you open this panel";
+
+    if (shortcut) {
+        const kbd = document.createElement("kbd");
+
+        kbd.textContent = shortcut;
+        startHint.append(" or press ", kbd);
+    }
 
     // activeTab exposes the tab's URL while the popup is open.
     const [tab] = await browser.tabs.query({
@@ -121,7 +177,7 @@
         currentWindow: true
     });
 
-    // The site the checkbox below applies to: the hostname, or "file://"
+    // The site the switch below applies to: the hostname, or "file://"
     // for local files, which have none. The inspector names it the same way.
     let site = null;
 
@@ -140,32 +196,46 @@
     if (!site) {
         document.body.classList.add("unavailable");
         siteLabel.textContent = "Not available on this page";
+        siteDesc.textContent = "Browser pages can't be inspected";
         return;
     }
 
-    siteLabel.textContent = site === "file://" ? "Local files" : site;
+    const siteName = site === "file://" ? "Local files" : site;
+
+    siteLabel.textContent = siteName;
+    siteLabel.title = siteName;
 
     // Opening the popup grants activeTab, which lets Scope start here.
     injection.start(tab.id)
         .catch(error => console.error("Scope:", error));
 
+    function showSiteState() {
+        status.classList.toggle("active", enabledSwitch.checked);
+        siteDesc.textContent = enabledSwitch.checked
+            ? "Hover an element and press Shift"
+            : `Turned off on ${site === "file://" ? "local files" : site}`;
+    }
+
     const { disabledSites = [] } =
         await browser.storage.local.get("disabledSites");
 
-    checkbox.checked = disabledSites.includes(site);
-    checkbox.disabled = false;
+    enabledSwitch.checked = !disabledSites.includes(site);
+    enabledSwitch.disabled = false;
+    showSiteState();
 
-    checkbox.addEventListener("change", async () => {
+    enabledSwitch.addEventListener("change", async () => {
+        showSiteState();
+
         // Re-read so a change made in another window isn't overwritten.
         const { disabledSites = [] } =
             await browser.storage.local.get("disabledSites");
 
         const sites = new Set(disabledSites);
 
-        if (checkbox.checked) {
-            sites.add(site);
-        } else {
+        if (enabledSwitch.checked) {
             sites.delete(site);
+        } else {
+            sites.add(site);
         }
 
         await browser.storage.local.set({

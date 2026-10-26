@@ -2,142 +2,63 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <style>
-        :root {
-            color-scheme: light dark;
-            --bg: #fff;
-            --fg: #15141a;
-            --muted: #5b5b66;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #2b2a33;
-                --fg: #fbfbfe;
-                --muted: #bfbfc9;
-            }
-        }
-
-        body {
-            margin: 0;
-            padding: 12px 14px;
-            min-width: 220px;
-            background: var(--bg);
-            color: var(--fg);
-            font: 13px/1.4 system-ui, sans-serif;
-        }
-
-        label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
-
-        hr {
-            margin: 10px 0;
-            border: none;
-            border-top: 1px solid var(--muted);
-            opacity: 0.4;
-        }
-
-        #site,
-        #start-hint {
-            margin-top: 4px;
-            color: var(--muted);
-            word-break: break-all;
-        }
-
-        #site {
-            font-family: monospace;
-        }
-
-        summary {
-            cursor: pointer;
-        }
-
-        #bulk {
-            margin-top: 6px;
-            color: var(--muted);
-        }
-
-        /* Text links rather than buttons, so they don't outweigh the
-           checkboxes. */
-        #bulk button {
-            padding: 0;
-            border: none;
-            background: none;
-            color: inherit;
-            font: inherit;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-
-        #bulk button:hover {
-            color: var(--fg);
-        }
-
-        #properties {
-            display: grid;
-            grid-template-columns: auto auto;
-            gap: 8px 16px;
-            margin-top: 8px;
-        }
-
-        fieldset {
-            margin: 0;
-            padding: 0;
-            border: none;
-        }
-
-        legend {
-            padding: 0;
-            margin-bottom: 2px;
-            color: var(--muted);
-        }
-
-        #properties label {
-            font-family: monospace;
-        }
-
-        .unavailable #site-setting {
-            opacity: 0.5;
-            cursor: default;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <label>
-        <input type="checkbox" id="show-defaults">
-        Show default values
-    </label>
-
-    <details>
-        <summary>Shown properties</summary>
-        <div id="bulk">
-            Show
-            <button type="button" id="show-all">all</button>
-            ·
-            <button type="button" id="hide-all">none</button>
+    <header class="head">
+        <img src="../icons/icon-96.png" alt="" width="32" height="32">
+        <div>
+            <h1>Scope</h1>
+            <p class="status" id="status">
+                <span class="dot"></span>
+                <span id="site">…</span>
+            </p>
         </div>
-        <div id="properties"></div>
+    </header>
+
+    <div class="card">
+        <label class="row" id="site-setting">
+            <span class="row-text">
+                <span class="row-title">Run on this site</span>
+                <span class="row-desc" id="site-desc"></span>
+            </span>
+            <input type="checkbox" role="switch" class="switch" id="enabled" disabled>
+        </label>
+    </div>
+
+    <div class="card">
+        <label class="row">
+            <span class="row-text">
+                <span class="row-title">Always ready</span>
+                <span class="row-desc" id="start-hint"></span>
+            </span>
+            <input type="checkbox" role="switch" class="switch" id="always-ready">
+        </label>
+        <label class="row">
+            <span class="row-text">
+                <span class="row-title">Show default values</span>
+                <span class="row-desc">Include rows left at their initial value</span>
+            </span>
+            <input type="checkbox" role="switch" class="switch" id="show-defaults">
+        </label>
+    </div>
+
+    <details class="card" id="rows">
+        <summary>
+            <span class="row-text">
+                <span class="row-title">Tooltip rows</span>
+                <span class="row-desc" id="rows-count"></span>
+            </span>
+        </summary>
+        <div class="panel">
+            <div class="bulk">
+                <button type="button" id="show-all">Show all</button>
+                <button type="button" id="hide-all">Hide all</button>
+            </div>
+            <div id="properties"></div>
+        </div>
     </details>
-
-    <hr>
-
-    <label id="site-setting">
-        <input type="checkbox" id="disabled" disabled>
-        Disable on this site
-    </label>
-    <div id="site"></div>
-
-    <hr>
-
-    <label>
-        <input type="checkbox" id="always-ready">
-        Always ready on every site
-    </label>
-    <div id="start-hint"></div>
 
     <script src="../content/properties.js"></script>
     <script src="../background/injection.js"></script>

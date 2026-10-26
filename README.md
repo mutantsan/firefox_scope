@@ -9,8 +9,8 @@ A small Firefox extension for checking an element's CSS without opening DevTools
 Scope only runs in a tab once you start it there: click the toolbar button or
 press **Ctrl+Alt+S**. It then stays ready in that tab until the page is
 reloaded or you leave it. To have it ready on every page without starting it,
-click the toolbar button and check **Always ready on every site**. Firefox
-then asks for access to all websites. Unchecking it removes that access.
+click the toolbar button and switch on **Always ready**. Firefox
+then asks for access to all websites. Switching it off removes that access.
 The shortcut can be changed in `about:addons` → ⚙ → **Manage Extension
 Shortcuts**.
 
@@ -65,8 +65,8 @@ When one element is inside the other, the lines show how far each of its edges
 is from the outer one's. The tooltip fades while Alt is held, and you can point
 at elements underneath it. Release Alt to go back to inspecting.
 
-To turn it off for a site, click the toolbar button and check
-**Disable on this site**. This applies to the current hostname straight away,
+To turn it off for a site, click the toolbar button and switch off
+**Run on this site**. This applies to the current hostname straight away,
 without reloading the page.
 For a local file, it turns Scope off for all local files.
 
@@ -103,9 +103,10 @@ When the hovered state differs from the normal state, both are shown:
 `normal → hover`.
 
 To choose which rows the tooltip shows, click the toolbar button and open
-**Shown properties**. Unchecked rows are hidden everywhere, including from
-"copy all", and an open tooltip updates straight away. **Show all** and
-**none** check or uncheck every row at once.
+**Tooltip rows**, then click a property to show or hide it. Hidden rows are
+hidden everywhere, including from "copy all", and an open tooltip updates
+straight away. Click a group's name to show or hide the whole group, or use
+**Show all** and **Hide all**.
 
 ## Install for development
 
