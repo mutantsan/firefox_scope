@@ -6,6 +6,16 @@ Hover over an element and hold **Shift**. A tooltip shows the element's key
 computed styles, and a blue focus border marks the element being inspected.
 Release Shift to dismiss it.
 
+To copy values, press **Shift+Alt** to pin the tooltip in place. Then:
+
+- click a value to copy it, e.g. `#4a7ab8`
+- click a property name to copy the declaration, e.g. `color: #4a7ab8;`
+- click **Copy all** to copy every row as CSS declarations
+- drag to select any text as usual
+
+Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
+it.
+
 To turn it off for a site, click the toolbar button and check
 **Disable on this site**. This applies to the current hostname straight away,
 without reloading the page.

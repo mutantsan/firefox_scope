@@ -35,6 +35,9 @@
     let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
+    let pinned = false;
+    let swallowNextClick = false;
+    let currentRows = [];
     let mouseX = 0;
     let mouseY = 0;
 
@@ -68,6 +71,154 @@
     });
 
     document.documentElement.appendChild(tooltip);
+
+    // Clicks inside a pinned tooltip must not reach the page, or clicking a
+    // value over a link or button would trigger it.
+    [
+        "mousedown",
+        "mouseup",
+        "click",
+        "dblclick",
+        "pointerdown",
+        "pointerup"
+    ].forEach(type => {
+        tooltip.addEventListener(type, event => event.stopPropagation());
+    });
+
+    // -------------------------------------------------------------------------
+    // Pin bar (only visible while pinned)
+    // -------------------------------------------------------------------------
+
+    const pinHint = "Click to copy · Esc to close";
+
+    const pinBar = document.createElement("div");
+
+    Object.assign(pinBar.style, {
+        display: "none",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "16px",
+
+        marginBottom: "6px",
+        paddingBottom: "6px",
+        borderBottom: "1px solid #333",
+
+        color: "#888"
+    });
+
+    const pinStatus = document.createElement("span");
+
+    pinStatus.textContent = pinHint;
+
+    const copyAllButton = document.createElement("button");
+
+    copyAllButton.type = "button";
+    copyAllButton.textContent = "Copy all";
+
+    Object.assign(copyAllButton.style, {
+        padding: "1px 8px",
+
+        background: "#222",
+        color: "#eee",
+        border: "1px solid #555",
+        borderRadius: "4px",
+
+        font: "inherit",
+        cursor: "pointer"
+    });
+
+    copyAllButton.addEventListener("click", () => {
+        const css = currentRows
+            .map(([property, normalValue]) => declaration(property, normalValue))
+            .join("\n");
+
+        copyText(css, "Copied all styles");
+    });
+
+    pinBar.append(pinStatus, copyAllButton);
+
+    function pin() {
+        pinned = true;
+
+        Object.assign(tooltip.style, {
+            pointerEvents: "auto",
+            userSelect: "text",
+            borderColor: "#3b9eff"
+        });
+
+        pinBar.style.display = "flex";
+    }
+
+    // -------------------------------------------------------------------------
+    // Copying
+    // -------------------------------------------------------------------------
+
+    function toCssName(property) {
+        return property.replace(/[A-Z]/g, letter => "-" + letter.toLowerCase());
+    }
+
+    function declaration(property, value) {
+        return `${toCssName(property)}: ${value};`;
+    }
+
+    let statusTimer = null;
+
+    function flashStatus(message) {
+        pinStatus.textContent = message;
+        pinStatus.style.color = "#3b9eff";
+
+        clearTimeout(statusTimer);
+
+        statusTimer = setTimeout(() => {
+            pinStatus.textContent = pinHint;
+            pinStatus.style.color = "";
+        }, 1200);
+    }
+
+    async function copyText(text, message = "Copied " + text) {
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            // navigator.clipboard is missing on plain http:// pages, so fall
+            // back to a hidden textarea. Still inside the click, so allowed.
+            const textarea = document.createElement("textarea");
+
+            textarea.value = text;
+
+            Object.assign(textarea.style, {
+                position: "fixed",
+                opacity: "0"
+            });
+
+            tooltip.append(textarea);
+            textarea.select();
+
+            const copied = document.execCommand("copy");
+
+            textarea.remove();
+
+            if (!copied) {
+                flashStatus("Copy failed");
+                return;
+            }
+        }
+
+        flashStatus(message);
+    }
+
+    // Clicking copies, unless the click ended a drag-selection of text.
+    function makeCopyable(node, text) {
+        node.title = "Click to copy";
+        node.style.cursor = "pointer";
+
+        node.addEventListener("click", () => {
+            if (!pinned || String(window.getSelection())) {
+                return;
+            }
+
+            copyText(text);
+        });
+    }
 
     // -------------------------------------------------------------------------
     // Focus border
@@ -109,6 +260,16 @@
     }
 
     function hideInspector() {
+        pinned = false;
+
+        Object.assign(tooltip.style, {
+            pointerEvents: "none",
+            userSelect: "",
+            borderColor: "#555"
+        });
+
+        pinBar.style.display = "none";
+
         inspectedElement = null;
         tooltip.style.display = "none";
         highlight.style.display = "none";
@@ -243,15 +404,8 @@
     }
 
     // -------------------------------------------------------------------------
-    // HTML helpers
+    // DOM helpers
     // -------------------------------------------------------------------------
-
-    function escapeHtml(value) {
-        return String(value)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;");
-    }
 
     function getHexColor(value) {
         const match = value.match(
@@ -265,30 +419,40 @@
         const color = getHexColor(value);
 
         if (!color) {
-            return "";
+            return null;
         }
 
-        // Kept on one line: the tooltip uses white-space: pre, so any
-        // newlines or indentation here would be rendered.
-        const style = [
-            "display: inline-block",
-            "width: 10px",
-            "height: 10px",
-            "margin-left: 5px",
-            "border: 1px solid #888",
-            "border-radius: 2px",
-            `background: ${color}`,
-            "vertical-align: -1px"
-        ].join("; ");
+        const swatch = document.createElement("span");
 
-        return `<span style="${style}"></span>`;
+        Object.assign(swatch.style, {
+            display: "inline-block",
+            width: "10px",
+            height: "10px",
+            marginLeft: "5px",
+            border: "1px solid #888",
+            borderRadius: "2px",
+            background: color,
+            verticalAlign: "-1px"
+        });
+
+        return swatch;
     }
 
+    // Built as nodes rather than markup, so page-derived values are always
+    // inserted as plain text.
     function renderValue(value) {
-        return (
-            escapeHtml(value) +
-            colorSwatch(value)
-        );
+        const node = document.createElement("span");
+        const swatch = colorSwatch(value);
+
+        node.append(value);
+
+        if (swatch) {
+            node.append(swatch);
+        }
+
+        makeCopyable(node, value);
+
+        return node;
     }
 
     // -------------------------------------------------------------------------
@@ -342,33 +506,40 @@
 
         const lines = rows.map(
             ([property, normalValue, hoverValue]) => {
-                const name = escapeHtml(
-                    property.padEnd(propertyWidth)
+                const line = document.createElement("div");
+                const name = document.createElement("span");
+
+                name.textContent = property;
+
+                makeCopyable(name, declaration(property, normalValue));
+
+                line.append(
+                    name,
+                    " ".repeat(propertyWidth - property.length + 2),
+                    renderValue(normalValue)
                 );
 
-                const normalRendered =
-                    renderValue(normalValue);
-
                 if (normalValue !== hoverValue) {
-                    const hoverRendered =
-                        renderValue(hoverValue);
+                    const arrow = document.createElement("span");
 
-                    return (
-                        `<div>${name}  ` +
-                        `${normalRendered}  ` +
-                        `<span style="color:#888">→</span>  ` +
-                        `${hoverRendered}</div>`
+                    arrow.style.color = "#888";
+                    arrow.textContent = "→";
+
+                    line.append(
+                        "  ",
+                        arrow,
+                        "  ",
+                        renderValue(hoverValue)
                     );
                 }
 
-                return (
-                    `<div>${name}  ` +
-                    `${normalRendered}</div>`
-                );
+                return line;
             }
         );
 
-        tooltip.innerHTML = lines.join("");
+        currentRows = rows;
+
+        tooltip.replaceChildren(pinBar, ...lines);
 
         tooltip.style.display = "block";
 
@@ -425,7 +596,7 @@
 
             if (
                 event.target instanceof Element &&
-                event.target !== tooltip &&
+                !tooltip.contains(event.target) &&
                 event.target !== highlight
             ) {
                 hoveredElement = event.target;
@@ -433,6 +604,7 @@
 
             if (
                 shiftPressed &&
+                !pinned &&
                 tooltip.style.display !== "none"
             ) {
                 positionTooltip();
@@ -442,14 +614,51 @@
     );
 
     // -------------------------------------------------------------------------
-    // Shift
+    // Keyboard: Shift inspects, Shift+Alt pins
     // -------------------------------------------------------------------------
 
     document.addEventListener(
         "keydown",
         event => {
+            if (!enabled) {
+                return;
+            }
+
+            if (pinned) {
+                // Esc or a fresh Shift press closes the pinned tooltip.
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    hideInspector();
+                } else if (event.key === "Shift" && !shiftPressed) {
+                    shiftPressed = true;
+                    hideInspector();
+                }
+
+                return;
+            }
+
+            // Either key order works: Shift then Alt, or Alt then Shift.
+            const pinCombo =
+                (event.key === "Alt" && event.shiftKey) ||
+                (event.key === "Shift" && event.altKey);
+
+            if (pinCombo) {
+                shiftPressed = true;
+
+                if (!inspectedElement && hoveredElement) {
+                    inspectElement(hoveredElement);
+                }
+
+                if (inspectedElement) {
+                    event.preventDefault();
+                    pin();
+                }
+
+                return;
+            }
+
             if (
-                !enabled ||
                 event.key !== "Shift" ||
                 shiftPressed
             ) {
@@ -468,12 +677,56 @@
     document.addEventListener(
         "keyup",
         event => {
+            // Stop Firefox from toggling the menu bar when Alt is released.
+            if (event.key === "Alt" && pinned) {
+                event.preventDefault();
+            }
+
             if (event.key !== "Shift") {
                 return;
             }
 
             shiftPressed = false;
+
+            if (!pinned) {
+                hideInspector();
+            }
+        },
+        true
+    );
+
+    // -------------------------------------------------------------------------
+    // Click outside closes a pinned tooltip
+    // -------------------------------------------------------------------------
+
+    // The closing click is swallowed so it doesn't also hit the page.
+    window.addEventListener(
+        "mousedown",
+        event => {
+            if (!pinned || tooltip.contains(event.target)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            swallowNextClick = true;
             hideInspector();
+        },
+        true
+    );
+
+    window.addEventListener(
+        "click",
+        event => {
+            if (!swallowNextClick) {
+                return;
+            }
+
+            swallowNextClick = false;
+
+            event.preventDefault();
+            event.stopPropagation();
         },
         true
     );
@@ -484,10 +737,13 @@
     window.addEventListener("resize", positionHighlight);
 
     // Prevent the tooltip from getting stuck if the window loses focus
-    // while Shift is held.
+    // while Shift is held. A pinned tooltip is meant to stay, so keep it.
     window.addEventListener("blur", () => {
         shiftPressed = false;
-        hideInspector();
+
+        if (!pinned) {
+            hideInspector();
+        }
     });
 
     // -------------------------------------------------------------------------
