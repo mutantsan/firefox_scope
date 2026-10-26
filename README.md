@@ -4,191 +4,93 @@
 
 ![Scope's pinned tooltip showing computed styles for a highlighted heading](image.png)
 
-A small Firefox and Chrome extension for checking an element's CSS without opening DevTools.
+A Firefox and Chrome extension for checking an element's CSS without opening DevTools.
 
-Scope only runs in a tab once you start it there: click the toolbar button or
-press **Ctrl+Alt+S** (**Alt+Shift+S** in Chrome). It then stays ready in
-that tab until the page is reloaded or you leave it. To have it ready on every
-page without starting it, click the toolbar button and switch on
-**Always ready**. The browser then asks for access to all websites. Switching
-it off removes that access. The shortcut can be changed in `about:addons` →
-⚙ → **Manage Extension Shortcuts** in Firefox, or at
-`chrome://extensions/shortcuts` in Chrome.
+## Usage
 
-Hover over an element and hold **Shift**. A tooltip shows the element's key
-computed styles, and a blue focus border marks the element being inspected.
-Keep holding Shift and move the pointer to inspect other elements. Release
-Shift to dismiss it.
+Start Scope in a tab with the toolbar button or **Ctrl+Alt+S** (**Alt+Shift+S**
+in Chrome). It stays on until you reload or leave the page. To skip this step,
+switch on **Always ready** in the popup; the browser will ask for access to all
+sites. Change the shortcut in `about:addons` → ⚙ → **Manage Extension
+Shortcuts** (Firefox) or `chrome://extensions/shortcuts` (Chrome).
 
-Shift is ignored while a text field has focus (inputs, textareas and rich-text
-editors), so typing capitals doesn't open the tooltip. Holding Shift on its own
-in a field shows a short hint instead. Click outside the field first to
-inspect.
+- **Hold Shift** over an element to see its styles. Move the pointer to
+  inspect others, release Shift to close. Shift is ignored while typing in a
+  text field.
+- **Shift+click** to pin the tooltip. Then click a value, property, selector
+  or class to copy it, or the copy icon to copy every row as CSS. Close it
+  with **Esc**, the × button or a click elsewhere.
+- **Arrow keys** on a pinned tooltip move to the parent (↑), first child (↓)
+  or siblings (← →). Click any part of the element path to jump to it.
+- **Hold Alt** (**Option** on a Mac) and point at another element to measure
+  the distance between them in pixels.
 
-To copy values, click while holding **Shift** to pin the tooltip in place. The
-click doesn't reach the page, so it won't follow links. Then:
+Shadow DOM (including closed roots) and iframes work too. Frames from other
+sites need **Always ready**. For local `file://` pages, start Scope manually;
+in Chrome, also enable **Allow access to file URLs** in the extension's
+details.
 
-- click a value to copy it, e.g. `#4a7ab8`
-- click a property name to copy the declaration, e.g. `color: #4a7ab8;`
-- click the element's name at the top to copy its selector with every class,
-  e.g. `h1#title.hero-heading`, or a class to copy just that class
-- click the copy icon in the top-right corner to copy every row as CSS
-  declarations
-- drag to select any text as usual
-
-Close a pinned tooltip with **Esc**, the × button or a click elsewhere on
-the page.
-
-A pinned tooltip also shows where the element sits in the page, e.g.
-`main › section.hero › h1`. To inspect a nearby element that is hard to point
-at, use the arrow keys: **↑** moves to the parent, **↓** to the first child,
-and **←** and **→** to the previous and next sibling. Elements that aren't
-displayed are skipped. Click a parent in the path to jump straight to it.
-
-Elements inside web components are inspected like any other, including ones
-in closed shadow roots. The path and the arrow keys follow the page as it is
-displayed: **↓** on a component goes into its shadow root, and **↑** from
-content placed in a slot goes to the slot's parent. A `»` in the path marks
-where it crosses into or out of a shadow root.
-
-Frames embedded in the page, such as CodePen previews or Storybook canvases,
-can be inspected too, each with its own tooltip inside the frame. Starting
-Scope covers the frames from the page's own site; frames from other sites
-need **Always ready on every site**. A frame that loads after Scope was
-started, for example when an editor reruns its preview, needs Scope to be
-started again, unless it is always ready.
-
-Local HTML files (`file://`) work too, once Scope is started there with the
-toolbar button or the shortcut. **Always ready** doesn't cover them. In
-Chrome, also switch on **Allow access to file URLs** in Scope's details at
-`chrome://extensions`.
-
-Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
-it.
-
-To measure the distance to another element, hold **Alt** (**Option** on a Mac)
-while an element is inspected, pinned or not, and point at the other element.
-It gets a red outline, and red lines show the gaps between the two in pixels.
-When one element is inside the other, the lines show how far each of its edges
-is from the outer one's. The tooltip fades while Alt is held, and you can point
-at elements underneath it. Release Alt to go back to inspecting.
-
-To turn it off for a site, click the toolbar button and switch off
-**Run on this site**. This applies to the current hostname straight away,
-without reloading the page.
-For a local file, it turns Scope off for all local files.
+To turn Scope off for a site, switch off **Run on this site** in the popup.
 
 ## What it shows
 
-- Colors: `color`, `backgroundColor`, border colors (collapsed to one
-  `borderColor` row when all four sides match) and `outlineColor`, as hex
-  values with a color swatch. Modern colors such as `oklch()`, `lab()` and
-  `color(display-p3 …)` are converted to hex too, unless they fall outside
-  the sRGB range a hex value can hold, in which case they're shown as
-  written
-- Contrast: the WCAG 2 contrast ratio of the text against what is visually
-  behind it, with AA and AAA pass/fail. Translucent backgrounds and
-  `opacity` are blended with what's behind them, elements positioned behind
-  the text (not just its parents) count, and large text uses the lower
-  thresholds. The result is `unknown` when an image, gradient or video shows
-  through behind the text
-- Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, and the
-  rendered font: the first font in the `fontFamily` list that is installed
-  or loaded, which is the one the text is actually drawn in
-- Box: `margin`, `padding`, `width`, `height`, `boxSizing`, `border`,
-  `borderRadius`
-- Layout: `display`, `position`, `zIndex`, `overflow`, `transform`,
-  `opacity`. Rows that only matter for some elements appear only there:
-  `justifyContent`, `alignItems` and `gap` on flex and grid containers,
-  `flexDirection` on flex containers, `gridTemplateColumns` and
-  `gridTemplateRows` on grid containers, and `zIndex` on positioned elements
-  and flex and grid items
-- A box model diagram with each side's margin, border and padding, and the
-  content size. The same regions are shaded on the page: margin in orange,
-  border in yellow, padding in green and content in blue
-- Accessibility, hidden until switched on in **Tooltip rows**: the
-  element's accessible name, its role (such as `button`, `link` or
-  `heading, level 2`), and whether it can be reached with Tab. A name is
-  marked **missing** when an element like a button, link, form field or
-  image has none, so screen readers have nothing to announce. These follow
-  the same rules browsers use, but are worked out from the page, so rare
-  cases can differ from DevTools
+- **Colors** as hex with swatches, including `oklch()`, `lab()` and P3 colors
+  where they fit in sRGB
+- **Contrast**: WCAG 2 ratio against what's actually behind the text, with
+  AA/AAA results
+- **Typography**: font family, size, weight, line height, and the font that
+  is actually rendered
+- **Box**: margin, padding, size, border, radius, plus a box model diagram
+  with the regions shaded on the page
+- **Layout**: display, position, overflow, transform, opacity, and flex/grid
+  properties where they apply
+- **Accessibility** (off by default): accessible name, role, and whether the
+  element is reachable with Tab. Missing names on buttons, links, fields and
+  images are flagged
 
-The tooltip opens with the element's tag, id and classes, and
-lists the rows in the same groups as above.
+Hover styles that differ from the normal state show as `normal → hover`.
+Pick which rows appear under **Tooltip rows** in the popup.
 
-When the hovered state differs from the normal state, both are shown:
-`normal → hover`.
+## Development
 
-To choose which rows the tooltip shows, click the toolbar button and open
-**Tooltip rows**, then click a property to show or hide it. Hidden rows are
-hidden everywhere, including from "copy all", and an open tooltip updates
-straight away. Click a group's name to show or hide the whole group, or use
-**Show all** and **Hide all**. The box model diagram is listed there too, as
-**box model** in the Box group.
+**Firefox:** open `about:debugging#/runtime/this-firefox`, click **Load
+Temporary Add-on…** and select `manifest.json`.
 
-## Install for development
+**Chrome:** run `npm run build:chrome`, open `chrome://extensions`, enable
+**Developer mode**, click **Load unpacked** and select `dist/chrome`. Rebuild
+and reload after changes.
 
-### Firefox
+## Releasing
 
-1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…** and select `manifest.json`.
-
-Temporary add-ons are removed when Firefox restarts.
-
-### Chrome
-
-1. Build the Chrome version with `npm run build:chrome`. This writes it to
-   `dist/chrome`.
-2. Open `chrome://extensions` and switch on **Developer mode**.
-3. Click **Load unpacked** and select the `dist/chrome` folder.
-
-Run the build again after changing the code, then click the reload button on
-Scope's card.
-
-If nothing happens on a page, start Scope there with the toolbar button or
-the shortcut first.
-
-## Release a new version
-
-1. Bump `version` in `manifest.json`. AMO rejects a version that was already
-   uploaded.
-2. Lint and package with [web-ext](https://github.com/mozilla/web-ext):
+1. Bump `version` in `manifest.json`.
+2. Lint and package:
 
    ```sh
    npx web-ext lint
    npx web-ext build --overwrite-dest
    ```
 
-   This writes `web-ext-artifacts/scope-<version>.zip`. Repo-only files are
-   excluded via `web-ext-config.mjs`.
-3. Upload the zip on [addons.mozilla.org](https://addons.mozilla.org/developers/)
-   → Scope → **Upload New Version**, or sign and submit from the command line
-   with API keys from **Tools → Manage API Keys**:
+3. Upload `web-ext-artifacts/scope-<version>.zip` on
+   [addons.mozilla.org](https://addons.mozilla.org/developers/), or sign from
+   the command line:
 
    ```sh
    npx web-ext sign --channel=listed \
        --api-key=$AMO_JWT_ISSUER --api-secret=$AMO_JWT_SECRET
    ```
-4. For Chrome, run `npm run build:chrome`, which writes
-   `web-ext-artifacts/scope-chrome-<version>.zip`. Upload it in the
-   [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole)
-   → Scope → **Package** → **Upload new package**.
+
+4. For Chrome, run `npm run build:chrome` and upload
+   `web-ext-artifacts/scope-chrome-<version>.zip` in the
+   [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole).
 
 ## Permissions
 
-- **`activeTab`** and **`scripting`**: start Scope in the current tab when
-  you click the toolbar button or press the shortcut, so it can read the
-  computed styles of the element under the cursor, in the page and in its
-  frames from the same site. The popup also reads the tab's hostname for
-  **Disable on this site**.
-- **Access to all `http://` and `https://` sites**, optional: only asked
-  for when you check **Always ready on every site**, to start Scope on every
-  page by itself, including frames from other sites.
-- **`storage`**: saves your settings locally: the hostnames where it's
-  disabled, and which rows the tooltip shows.
+- **`activeTab`, `scripting`**: run Scope in the current tab when you start it.
+- **All sites** (optional): only requested for **Always ready**.
+- **`storage`**: saves your settings locally.
 
-It makes no network requests and stores nothing besides those settings.
+Scope sends no data anywhere. The only requests it makes are for stylesheets
+the page already loads, to read their hover rules.
 
 ## License
 
