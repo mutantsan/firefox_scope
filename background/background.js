@@ -20,6 +20,15 @@
     browser.permissions.onAdded.addListener(sync);
     browser.permissions.onRemoved.addListener(sync);
 
+    // Key presses only reach the focused frame, so Scope in one frame sends
+    // Shift and Alt here to pass them on to the tab's other frames.
+    browser.runtime.onMessage.addListener((message, sender) => {
+        if (message.scopeKey && sender.tab) {
+            browser.tabs.sendMessage(sender.tab.id, message)
+                .catch(() => {});
+        }
+    });
+
     // DEBUG: remove once the shortcut is confirmed working.
     console.log("[Scope] background loaded");
     browser.commands?.getAll().then(commands =>

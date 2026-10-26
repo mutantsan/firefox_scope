@@ -27,19 +27,24 @@
 
     /*
      * Injected and registered scripts share the extension's isolated world,
-     * so a page that already runs Scope is recognised by its global and
-     * isn't given a second copy. Needs activeTab or the all-sites
-     * permission for the tab.
+     * so a frame that already runs Scope is recognised by its global and
+     * isn't given a second copy. activeTab covers frames from the page's
+     * own origin, the all-sites permission every frame. Frames Scope can't
+     * access come back without a result and are left alone.
      */
     async function start(tabId) {
-        const [{ result: running }] = await browser.scripting.executeScript({
-            target: { tabId },
+        const results = await browser.scripting.executeScript({
+            target: { tabId, allFrames: true },
             func: () => Boolean(globalThis.Scope?.inspector)
         });
 
-        if (!running) {
+        const frameIds = results
+            .filter(({ result }) => result === false)
+            .map(({ frameId }) => frameId);
+
+        if (frameIds.length > 0) {
             await browser.scripting.executeScript({
-                target: { tabId },
+                target: { tabId, frameIds },
                 files
             });
         }
@@ -52,6 +57,7 @@
     // Registers the content scripts while the all-sites permission is
     // granted and removes them when it isn't. The permission can also be
     // changed in about:addons, so this follows it rather than the popup.
+    // A registration kept from an older version is brought up to date.
     async function syncAlwaysReady() {
         const granted = await hasAllSites();
 
@@ -61,15 +67,20 @@
             })
         ).length > 0;
 
+        const script = {
+            id: scriptId,
+            matches: origins,
+            js: files,
+            allFrames: true,
+            runAt: "document_idle",
+            persistAcrossSessions: true
+        };
+
         if (granted && !registered) {
-            await browser.scripting.registerContentScripts([{
-                id: scriptId,
-                matches: origins,
-                js: files,
-                runAt: "document_idle",
-                persistAcrossSessions: true
-            }]);
-        } else if (!granted && registered) {
+            await browser.scripting.registerContentScripts([script]);
+        } else if (granted) {
+            await browser.scripting.updateContentScripts([script]);
+        } else if (registered) {
             await browser.scripting.unregisterContentScripts({
                 ids: [scriptId]
             });

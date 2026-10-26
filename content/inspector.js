@@ -398,88 +398,202 @@
         );
     }
 
+    // -------------------------------------------------------------------------
+    // Frames: keys reach only the focused one
+    // -------------------------------------------------------------------------
+
+    /*
+     * The pointer can be over one frame while another has focus, so Shift
+     * and Alt are passed on to Scope in the tab's other frames, through the
+     * background script so the page can't fake them. Only the frame under
+     * the pointer has a hovered element, so only it inspects.
+     */
+    const frameKey = crypto.randomUUID();
+    const sharedKeys = new Set(["Shift", "Alt"]);
+
+    function hasOtherFrames() {
+        return window !== window.top || window.frames.length > 0;
+    }
+
+    function shareKey(event) {
+        if (
+            event.relayed ||
+            event.repeat ||
+            !sharedKeys.has(event.key) ||
+            !hasOtherFrames()
+        ) {
+            return;
+        }
+
+        browser.runtime.sendMessage({
+            scopeKey: { type: event.type, key: event.key, from: frameKey }
+        }).catch(() => {});
+    }
+
+    browser.runtime.onMessage.addListener(({ scopeKey }) => {
+        if (!scopeKey || scopeKey.from === frameKey) {
+            return;
+        }
+
+        // Stands in for the KeyboardEvent the handlers expect.
+        const event = {
+            type: scopeKey.type,
+            key: scopeKey.key,
+            repeat: false,
+            relayed: true,
+            preventDefault() {},
+            stopPropagation() {}
+        };
+
+        if (event.type === "keydown") {
+            onKeyDown(event);
+        } else {
+            onKeyUp(event);
+        }
+    });
+
+    // Leaving the document, into a child frame or out of this one, means
+    // nothing here is under the pointer any more. The frame it moves to
+    // takes over, so an unpinned tooltip here is closed.
     document.addEventListener(
-        "keydown",
+        "mouseout",
         event => {
-            if (!enabled || startMeasuring(event)) {
-                return;
-            }
-
-            if (tooltip.isPinned()) {
-                // Esc or a fresh Shift press closes the pinned tooltip.
-                if (event.key === "Escape") {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    hideInspector();
-                } else if (event.key === "Shift" && !shiftPressed) {
-                    shiftPressed = true;
-                    hideInspector();
-                } else {
-                    walk(event);
-                }
-
-                return;
-            }
-
-            // Shift is part of normal typing, so don't inspect while a text
-            // field has focus.
-            if (isEditable(tree.focusedElement())) {
-                if (event.key !== "Shift") {
-                    cancelEditableHint();
-                } else if (!editableHintTimer && !event.repeat) {
-                    editableHintTimer = setTimeout(
-                        showEditableHint,
-                        editableHintDelay
-                    );
-                }
-
-                return;
-            }
+            const to = event.relatedTarget;
 
             if (
-                event.key !== "Shift" ||
-                shiftPressed
+                to &&
+                !(to instanceof HTMLIFrameElement) &&
+                !(to instanceof HTMLFrameElement)
             ) {
                 return;
             }
 
-            shiftPressed = true;
+            hoveredElement = null;
 
-            if (hoveredElement) {
-                inspectElement(hoveredElement);
-            }
-        },
-        true
-    );
-
-    document.addEventListener(
-        "keyup",
-        event => {
-            if (event.key === "Alt" && altPressed) {
-                event.preventDefault();
-                stopMeasuring();
-
-                // Back to following the cursor if Shift is still held.
-                if (shiftPressed) {
-                    scheduleReinspect();
-                }
-
-                return;
-            }
-
-            if (event.key !== "Shift") {
-                return;
-            }
-
-            cancelEditableHint();
-            shiftPressed = false;
-
-            if (!tooltip.isPinned()) {
+            if (!tooltip.isPinned() && !altPressed) {
                 hideInspector();
             }
         },
         true
     );
+
+    // Pinning swallows the mousedown, which would have focused this frame,
+    // so focus is moved here by hand for Esc, Shift and the arrows to reach
+    // the pinned tooltip.
+    function focusFrame() {
+        window.focus();
+
+        const focused = tree.focusedElement();
+
+        if (
+            focused instanceof HTMLIFrameElement ||
+            focused instanceof HTMLFrameElement
+        ) {
+            focused.blur();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Keyboard handlers
+    // -------------------------------------------------------------------------
+
+    // Relayed presses come from another frame, which has already checked
+    // its own text field.
+    function onKeyDown(event) {
+        const typing = !event.relayed && isEditable(tree.focusedElement());
+
+        if (event.key !== "Shift" || !typing) {
+            shareKey(event);
+        }
+
+        // Another frame may be measuring, and releasing Alt would open
+        // Firefox's menu bar.
+        if (event.key === "Alt" && shiftPressed) {
+            event.preventDefault();
+        }
+
+        if (!enabled || startMeasuring(event)) {
+            return;
+        }
+
+        if (tooltip.isPinned()) {
+            // Esc or a fresh Shift press closes the pinned tooltip.
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                hideInspector();
+            } else if (event.key === "Shift" && !shiftPressed) {
+                shiftPressed = true;
+                hideInspector();
+            } else {
+                walk(event);
+            }
+
+            return;
+        }
+
+        // Shift is part of normal typing, so don't inspect while a text
+        // field has focus.
+        if (typing) {
+            if (event.key !== "Shift") {
+                cancelEditableHint();
+            } else if (!editableHintTimer && !event.repeat) {
+                editableHintTimer = setTimeout(
+                    showEditableHint,
+                    editableHintDelay
+                );
+            }
+
+            return;
+        }
+
+        if (
+            event.key !== "Shift" ||
+            shiftPressed
+        ) {
+            return;
+        }
+
+        shiftPressed = true;
+
+        if (hoveredElement) {
+            inspectElement(hoveredElement);
+        }
+    }
+
+    function onKeyUp(event) {
+        shareKey(event);
+
+        if (event.key === "Alt" && shiftPressed) {
+            event.preventDefault();
+        }
+
+        if (event.key === "Alt" && altPressed) {
+            event.preventDefault();
+            stopMeasuring();
+
+            // Back to following the cursor if Shift is still held.
+            if (shiftPressed) {
+                scheduleReinspect();
+            }
+
+            return;
+        }
+
+        if (event.key !== "Shift") {
+            return;
+        }
+
+        cancelEditableHint();
+        shiftPressed = false;
+
+        if (!tooltip.isPinned()) {
+            hideInspector();
+        }
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keyup", onKeyUp, true);
 
     // -------------------------------------------------------------------------
     // Shift+click pins, click outside closes a pinned tooltip
@@ -501,6 +615,7 @@
 
                 swallowNextClick = true;
                 tooltip.pin();
+                focusFrame();
                 return;
             }
 
@@ -601,10 +716,23 @@
     // Settings
     // -------------------------------------------------------------------------
 
-    // The toolbar popup stores hostnames in `disabledSites`. Listening for
+    // The popup's name for the page in the tab: its hostname, or "file://"
+    // for local files, which have none. A frame goes by the page around it
+    // where Firefox tells it, so disabling a site covers its frames too.
+    function siteName() {
+        const ancestors = location.ancestorOrigins;
+        const top = ancestors?.[ancestors.length - 1];
+        const url = top && top !== "null" ? new URL(top) : location;
+
+        return url.protocol === "file:" ? "file://" : url.hostname;
+    }
+
+    const site = siteName();
+
+    // The toolbar popup stores site names in `disabledSites`. Listening for
     // changes lets the checkbox take effect without reloading the page.
     function applyDisabledSites(disabledSites = []) {
-        enabled = !disabledSites.includes(location.hostname);
+        enabled = !disabledSites.includes(site);
 
         if (!enabled) {
             hideInspector();

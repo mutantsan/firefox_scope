@@ -121,25 +121,29 @@
         currentWindow: true
     });
 
-    let hostname = null;
+    // The site the checkbox below applies to: the hostname, or "file://"
+    // for local files, which have none. The inspector names it the same way.
+    let site = null;
 
     try {
         const url = new URL(tab.url);
 
         if (url.protocol === "http:" || url.protocol === "https:") {
-            hostname = url.hostname;
+            site = url.hostname;
+        } else if (url.protocol === "file:") {
+            site = "file://";
         }
     } catch {
         // No readable URL; treated as unavailable below.
     }
 
-    if (!hostname) {
+    if (!site) {
         document.body.classList.add("unavailable");
         siteLabel.textContent = "Not available on this page";
         return;
     }
 
-    siteLabel.textContent = hostname;
+    siteLabel.textContent = site === "file://" ? "Local files" : site;
 
     // Opening the popup grants activeTab, which lets Scope start here.
     injection.start(tab.id)
@@ -148,7 +152,7 @@
     const { disabledSites = [] } =
         await browser.storage.local.get("disabledSites");
 
-    checkbox.checked = disabledSites.includes(hostname);
+    checkbox.checked = disabledSites.includes(site);
     checkbox.disabled = false;
 
     checkbox.addEventListener("change", async () => {
@@ -159,9 +163,9 @@
         const sites = new Set(disabledSites);
 
         if (checkbox.checked) {
-            sites.add(hostname);
+            sites.add(site);
         } else {
-            sites.delete(hostname);
+            sites.delete(site);
         }
 
         await browser.storage.local.set({

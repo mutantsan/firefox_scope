@@ -45,6 +45,16 @@ displayed: **↓** on a component goes into its shadow root, and **↑** from
 content placed in a slot goes to the slot's parent. A `»` in the path marks
 where it crosses into or out of a shadow root.
 
+Frames embedded in the page, such as CodePen previews or Storybook canvases,
+can be inspected too, each with its own tooltip inside the frame. Starting
+Scope covers the frames from the page's own site; frames from other sites
+need **Always ready on every site**. A frame that loads after Scope was
+started, for example when an editor reruns its preview, needs Scope to be
+started again, unless it is always ready.
+
+Local HTML files (`file://`) work too, once Scope is started there with the
+toolbar button or the shortcut. **Always ready** doesn't cover them.
+
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
 it.
 
@@ -58,6 +68,7 @@ at elements underneath it. Release Alt to go back to inspecting.
 To turn it off for a site, click the toolbar button and check
 **Disable on this site**. This applies to the current hostname straight away,
 without reloading the page.
+For a local file, it turns Scope off for all local files.
 
 ## What it shows
 
@@ -132,11 +143,12 @@ If nothing happens on a page, start Scope there with the toolbar button or
 
 - **`activeTab`** and **`scripting`**: start Scope in the current tab when
   you click the toolbar button or press the shortcut, so it can read the
-  computed styles of the element under the cursor. The popup also reads the
-  tab's hostname for **Disable on this site**.
+  computed styles of the element under the cursor, in the page and in its
+  frames from the same site. The popup also reads the tab's hostname for
+  **Disable on this site**.
 - **Access to all `http://` and `https://` sites**, optional: only asked
   for when you check **Always ready on every site**, to start Scope on every
-  page by itself.
+  page by itself, including frames from other sites.
 - **`storage`**: saves your settings locally: the hostnames where it's
   disabled, and which rows the tooltip shows.
 

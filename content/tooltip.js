@@ -18,6 +18,11 @@
 
             padding: 10px 12px;
             max-width: min(1200px, calc(100vw - 32px));
+            max-height: calc(100vh - 22px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: #555 transparent;
 
             background: #111;
             color: #eee;
