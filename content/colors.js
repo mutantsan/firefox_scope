@@ -518,6 +518,7 @@
         contrastRatio,
         rateContrast,
         isLargeText,
+        ancestorsOf,
         elementsBehind,
         contrastSummary
     };

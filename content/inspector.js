@@ -29,7 +29,7 @@
     // -------------------------------------------------------------------------
 
     function inspectElement(el) {
-        // Hovered first: measuring the normal state inserts clones.
+        // Hovered first: measuring the normal state changes the page.
         const hover = styles.getStyles(el);
         const normal = styles.getNormalStyles(el, hover);
 
@@ -197,7 +197,7 @@
 
     /*
      * While Shift is held the tooltip follows the element under the cursor.
-     * Inspecting clones the element, which is costly for large ones, so it
+     * Inspecting restyles the page, which is costly on large ones, so it
      * runs at most once per frame and only when the element changes.
      */
     let reinspectFrame = null;

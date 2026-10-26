@@ -2,7 +2,7 @@
 (function (Scope) {
     "use strict";
 
-    const { formatValue, contrastSummary, elementsBehind } = Scope.colors;
+    const { formatValue, contrastSummary, ancestorsOf, elementsBehind } = Scope.colors;
     const { renderedFont } = Scope.fonts;
 
     const properties = [
@@ -123,9 +123,10 @@
     // Normal (non-hovered) state
     // -------------------------------------------------------------------------
 
-    // Selectors of the :hover rules in each stylesheet, cached until the
-    // sheet's rule count changes, e.g. when CSS-in-JS inserts a rule.
-    const hoverSelectorCache = new WeakMap();
+    // The :hover rules of each stylesheet with their resolved selectors,
+    // cached until the sheet's rule count changes, e.g. when CSS-in-JS
+    // inserts a rule.
+    const hoverRuleCache = new WeakMap();
 
     // A nested rule's selector is relative to its parent style rule, so it
     // is resolved into one that Element.matches() understands.
@@ -148,11 +149,11 @@
             : `${scope} :is(${own})`;
     }
 
-    function collectHoverSelectors(rules, selectors) {
+    function collectHoverRules(rules, found) {
         for (const rule of rules) {
             if (rule instanceof CSSImportRule) {
                 if (rule.styleSheet) {
-                    collectHoverSelectors(rule.styleSheet.cssRules, selectors);
+                    collectHoverRules(rule.styleSheet.cssRules, found);
                 }
 
                 continue;
@@ -164,21 +165,21 @@
                 const selector = resolveSelector(rule);
 
                 if (selector.includes(":hover")) {
-                    selectors.push(selector);
+                    found.push({ rule, selector });
                 }
             }
 
             // Grouping rules (@media, @supports, @layer…) and nesting.
             if (rule.cssRules) {
-                collectHoverSelectors(rule.cssRules, selectors);
+                collectHoverRules(rule.cssRules, found);
             }
         }
 
-        return selectors;
+        return found;
     }
 
     // Null when the sheet can't be read, e.g. a cross-origin one.
-    function hoverSelectors(sheet) {
+    function hoverRules(sheet) {
         let rules;
 
         try {
@@ -187,24 +188,24 @@
             return null;
         }
 
-        const cached = hoverSelectorCache.get(sheet);
+        const cached = hoverRuleCache.get(sheet);
 
         if (cached && cached.count === rules.length) {
-            return cached.selectors;
+            return cached.found;
         }
 
-        let selectors;
+        let found;
 
         try {
-            selectors = collectHoverSelectors(rules, []);
+            found = collectHoverRules(rules, []);
         } catch {
             // An unreadable @import.
             return null;
         }
 
-        hoverSelectorCache.set(sheet, { count: rules.length, selectors });
+        hoverRuleCache.set(sheet, { count: rules.length, found });
 
-        return selectors;
+        return found;
     }
 
     function matchesSafely(el, selector) {
@@ -215,43 +216,141 @@
         }
     }
 
+    // Whether the selector matches `el` differently with :hover forced on
+    // and forced off. A selector matches() can't take, like one with a
+    // pseudo-element, counts as depending on it.
+    function dependsOnHover(el, selector) {
+        const hovered = matchesSafely(el, selector.replace(/:hover\b/g, ":is(*)"));
+        const normal = matchesSafely(el, selector.replace(/:hover\b/g, ":not(*)"));
+
+        return hovered === null || normal === null || hovered !== normal;
+    }
+
     /*
-     * Whether any :hover rule could style the element differently when it
-     * isn't hovered. Each selector is matched with :hover forced on and
-     * forced off: if that changes the result, the rule depends on hover.
+     * The :hover rules that could style the page around `el` differently
+     * when nothing is hovered. Only `el` and its ancestors are hovered,
+     * and the ones they style are themselves and the elements painted
+     * behind `el`, which count for contrast. Each element is matched only
+     * against the sheets of its own tree.
      *
-     * The inspected element is the deepest one under the pointer, so only
-     * it and its ancestors are hovered, and a clone can only drop its own
-     * hover. Rules that depend on an ancestor's hover make this return true
-     * without the clone showing a difference, which is wasted work but
-     * never a wrong result. When a sheet can't be read, assume a rule might.
+     * A nested rule's :hover can sit in a parent rule's selector, so the
+     * rules that get rewritten are the ones in the chain that hold it.
+     * `unreadable` is set when one of those trees has a sheet that can't
+     * be read, whose rules then can't be rewritten.
      */
-    function hoverMayApply(el) {
-        const root = el.getRootNode();
+    function findHoverRules(el, behind) {
+        const byRoot = new Map();
 
-        const sheets = [
-            ...(root.styleSheets || []),
-            ...(root.adoptedStyleSheets || [])
-        ];
+        for (const node of [...ancestorsOf(el), ...behind]) {
+            const root = node.getRootNode();
 
-        for (const sheet of sheets) {
-            const selectors = hoverSelectors(sheet);
+            byRoot.set(root, [...(byRoot.get(root) || []), node]);
+        }
 
-            if (!selectors) {
-                return true;
-            }
+        const rules = new Set();
+        let unreadable = false;
 
-            for (const selector of selectors) {
-                const hovered = matchesSafely(el, selector.replace(/:hover\b/g, ":is(*)"));
-                const normal = matchesSafely(el, selector.replace(/:hover\b/g, ":not(*)"));
+        for (const [root, nodes] of byRoot) {
+            const sheets = [
+                ...(root.styleSheets || []),
+                ...(root.adoptedStyleSheets || [])
+            ];
 
-                if (hovered === null || normal === null || hovered !== normal) {
-                    return true;
+            for (const sheet of sheets) {
+                const found = hoverRules(sheet);
+
+                if (!found) {
+                    unreadable = true;
+                    continue;
+                }
+
+                for (const { rule, selector } of found) {
+                    if (!nodes.some(node => dependsOnHover(node, selector))) {
+                        continue;
+                    }
+
+                    for (let r = rule; r; r = r.parentRule) {
+                        if (r instanceof CSSStyleRule && r.selectorText.includes(":hover")) {
+                            rules.add(r);
+                        }
+                    }
                 }
             }
         }
 
-        return false;
+        return { rules, roots: [...byRoot.keys()], unreadable };
+    }
+
+    function animationsIn(roots) {
+        return new Set(roots.flatMap(root => root.getAnimations()));
+    }
+
+    /*
+     * Changing the page's styles makes it react as to any other style
+     * change: properties with a `transition` start animating toward the
+     * new value, so getComputedStyle() would still return the old one,
+     * and CSS animations that are added back start over. New transitions
+     * are cancelled, which jumps them to their end value, and restarted
+     * animations get back the time they had.
+     */
+    function settleAnimations(roots, before, times) {
+        for (const animation of animationsIn(roots)) {
+            if (before.has(animation)) {
+                continue;
+            }
+
+            if ("transitionProperty" in animation) {
+                animation.cancel();
+            } else if ("animationName" in animation) {
+                const time = times.find(t =>
+                    t.target === animation.effect?.target &&
+                    t.pseudoElement === animation.effect?.pseudoElement &&
+                    t.name === animation.animationName
+                );
+
+                if (time) {
+                    animation.currentTime = time.currentTime;
+                }
+            }
+        }
+    }
+
+    /*
+     * Runs `measure` with each rule's :hover replaced by :not(*), which
+     * nothing matches, so the page is styled as if nothing were hovered.
+     * The rules are restored before the next paint, so the page never
+     * visibly changes. Any transition already running on a hover change
+     * jumps to its end.
+     */
+    function withoutHover(rules, roots, measure) {
+        const before = animationsIn(roots);
+
+        const times = [...before]
+            .filter(animation => "animationName" in animation)
+            .map(animation => ({
+                target: animation.effect?.target,
+                pseudoElement: animation.effect?.pseudoElement,
+                name: animation.animationName,
+                currentTime: animation.currentTime
+            }));
+
+        const original = [...rules].map(rule => [rule, rule.selectorText]);
+
+        try {
+            for (const [rule, text] of original) {
+                rule.selectorText = text.replace(/:hover\b/g, ":not(*)");
+            }
+
+            settleAnimations(roots, before, times);
+
+            return measure();
+        } finally {
+            for (const [rule, text] of original) {
+                rule.selectorText = text;
+            }
+
+            settleAnimations(roots, before, times);
+        }
     }
 
     /*
@@ -305,27 +404,19 @@
     }
 
     /*
-     * Get approximately the non-hovered state by cloning the element.
-     *
-     * A freshly inserted clone isn't in the pointer's hover chain, so
-     * :hover does not apply to it. When no :hover rule could apply, the
-     * normal state is the hovered one and no clone is made.
+     * The fallback for :hover rules in sheets that can't be read: a freshly
+     * inserted clone isn't in the pointer's hover chain, so its own :hover
+     * doesn't apply. An ancestor's still does.
      *
      * The clone is a sibling, so structural selectors can match it
      * differently. Placed before the original, it keeps the original's
-     * :nth-child, :first-child, + and ~ matches, but not :last-child or
-     * :nth-last-child. So when values differ, they're measured again with
-     * the clone after the original. A difference that depends on where the
-     * clone sits comes from structure rather than hover, so it's dropped.
-     *
-     * `hover` must be measured before any clone is inserted, since the
-     * clone also changes the original's structural matches.
+     * :nth-child, :first-child, + and ~ matches, but not :last-child,
+     * :nth-last-child or :only-child. So when values differ, they're
+     * measured again with the clone after the original. A difference that
+     * depends on where the clone sits comes from structure rather than
+     * hover, so it's dropped.
      */
-    function getNormalStyles(el, hover) {
-        if (!hoverMayApply(el)) {
-            return hover;
-        }
-
+    function getCloneNormalStyles(el, hover) {
         const behind = elementsBehind(el);
         const normal = getCloneStyles(el, "before", behind);
 
@@ -346,6 +437,29 @@
         }
 
         return normal;
+    }
+
+    /*
+     * Get the non-hovered state by switching off the :hover rules that
+     * apply around the element, including ones on its ancestors, like
+     * `.card:hover .title`. When no :hover rule could apply, the normal
+     * state is the hovered one and nothing is changed.
+     *
+     * Rules in a sheet that can't be read, like a cross-origin one, can't
+     * be switched off, so then the element is also cloned, see
+     * getCloneNormalStyles(). `hover` must be measured before, since
+     * the clone also changes the original's structural matches.
+     */
+    function getNormalStyles(el, hover) {
+        const { rules, roots, unreadable } = findHoverRules(el, elementsBehind(el));
+
+        if (!rules.size && !unreadable) {
+            return hover;
+        }
+
+        return withoutHover(rules, roots, () =>
+            unreadable ? getCloneNormalStyles(el, hover) : getStyles(el)
+        );
     }
 
     function collapseBorderColors(styles) {
