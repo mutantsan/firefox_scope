@@ -33,7 +33,7 @@
         boxShadow: "0 4px 16px rgba(0, 0, 0, 0.35)"
     });
 
-    document.documentElement.appendChild(tooltip);
+    Scope.ui.root.append(tooltip);
 
     // Clicks inside a pinned tooltip must not reach the page, or clicking a
     // value over a link or button would trigger it.
@@ -80,34 +80,36 @@
     copyAllButton.setAttribute("aria-label", "Copy all");
 
     // Two overlapping sheets, built with DOM calls rather than innerHTML.
-    // SVG presentation attributes lose to any page CSS (e.g. a site-wide
-    // `svg { fill: currentColor }`), so paint is set as !important styles.
+    // Page CSS can't reach into the shadow root, so plain presentation
+    // attributes are enough for the paint.
     const svgNS = "http://www.w3.org/2000/svg";
 
-    function forceStyles(el, styles) {
-        for (const [name, value] of Object.entries(styles)) {
-            el.style.setProperty(name, value, "important");
+    function setAttributes(el, attributes) {
+        for (const [name, value] of Object.entries(attributes)) {
+            el.setAttribute(name, value);
         }
     }
 
     const copyIcon = document.createElementNS(svgNS, "svg");
 
-    copyIcon.setAttribute("viewBox", "0 0 24 24");
-
-    forceStyles(copyIcon, {
-        display: "block",
-        width: "14px",
-        height: "14px",
-        color: "#eee"
+    setAttributes(copyIcon, {
+        viewBox: "0 0 24 24",
+        width: "14",
+        height: "14",
+        fill: "none",
+        stroke: "#eee",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round"
     });
+
+    copyIcon.style.display = "block";
 
     const front = document.createElementNS(svgNS, "rect");
 
-    for (const [name, value] of Object.entries({
+    setAttributes(front, {
         x: "9", y: "9", width: "13", height: "13", rx: "2"
-    })) {
-        front.setAttribute(name, value);
-    }
+    });
 
     const back = document.createElementNS(svgNS, "path");
 
@@ -115,16 +117,6 @@
         "d",
         "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
     );
-
-    for (const shape of [front, back]) {
-        forceStyles(shape, {
-            fill: "none",
-            stroke: "#eee",
-            "stroke-width": "2",
-            "stroke-linecap": "round",
-            "stroke-linejoin": "round"
-        });
-    }
 
     copyIcon.append(front, back);
     copyAllButton.append(copyIcon);
@@ -310,7 +302,6 @@
     Scope.tooltip = {
         isPinned: () => pinned,
         isVisible: () => tooltip.style.display !== "none",
-        contains: node => tooltip.contains(node),
         pin,
         hide,
         show,

@@ -2,7 +2,7 @@
 (function (Scope) {
     "use strict";
 
-    const { styles, render, tooltip, overlays } = Scope;
+    const { ui, styles, render, tooltip, overlays } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
@@ -173,8 +173,8 @@
         });
     }
 
-    // The overlays don't take pointer events, so only the tooltip needs
-    // excluding.
+    // Moves over the tooltip arrive retargeted to the UI host, which isn't
+    // part of the page.
     document.addEventListener(
         "mousemove",
         event => {
@@ -183,7 +183,7 @@
 
             if (
                 event.target instanceof Element &&
-                !tooltip.contains(event.target)
+                event.target !== ui.host
             ) {
                 hoveredElement = event.target;
             }
@@ -336,7 +336,8 @@
                 return;
             }
 
-            if (!tooltip.isPinned() || tooltip.contains(event.target)) {
+            // A click inside the tooltip arrives retargeted to the UI host.
+            if (!tooltip.isPinned() || event.target === ui.host) {
                 return;
             }
 

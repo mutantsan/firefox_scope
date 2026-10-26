@@ -35,6 +35,7 @@
         "https://*/*"
       ],
       "js": [
+        "content/ui.js",
         "content/colors.js",
         "content/styles.js",
         "content/overlays.js",

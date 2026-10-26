@@ -82,7 +82,7 @@
         return guide;
     });
 
-    document.documentElement.append(marginOverlay, highlight, ...guides);
+    Scope.ui.root.append(marginOverlay, highlight, ...guides);
 
     function setDisplay(display) {
         for (const overlay of [marginOverlay, highlight, ...guides]) {
