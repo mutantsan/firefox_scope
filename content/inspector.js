@@ -2,13 +2,14 @@
 (function (Scope) {
     "use strict";
 
-    const { ui, styles, render, tooltip, overlays } = Scope;
+    const { ui, styles, render, tooltip, overlays, measure } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
     let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
+    let altPressed = false;
     let swallowNextClick = false;
     let mouseX = 0;
     let mouseY = 0;
@@ -18,6 +19,7 @@
 
         inspectedElement = null;
         overlays.hide();
+        measure.hide();
     }
 
     // -------------------------------------------------------------------------
@@ -173,6 +175,7 @@
 
             if (
                 shiftPressed &&
+                !altPressed &&
                 !tooltip.isPinned() &&
                 hoveredElement &&
                 hoveredElement !== inspectedElement
@@ -197,7 +200,9 @@
                 hoveredElement = event.target;
             }
 
-            if (shiftPressed && !tooltip.isPinned()) {
+            if (altPressed) {
+                measure.show(inspectedElement, hoveredElement);
+            } else if (shiftPressed && !tooltip.isPinned()) {
                 if (hoveredElement !== inspectedElement) {
                     scheduleReinspect();
                 } else if (tooltip.isVisible()) {
@@ -207,6 +212,37 @@
         },
         true
     );
+
+    // -------------------------------------------------------------------------
+    // Keyboard: Alt measures
+    // -------------------------------------------------------------------------
+
+    /*
+     * Holding Alt keeps the inspected element, pinned or not, and measures
+     * from it to the element under the cursor. Alt's default is cancelled so
+     * releasing it doesn't open Firefox's menu bar.
+     */
+    function startMeasuring(event) {
+        if (event.key !== "Alt" || !inspectedElement) {
+            return false;
+        }
+
+        event.preventDefault();
+
+        if (!altPressed) {
+            altPressed = true;
+            tooltip.fade(true);
+            measure.show(inspectedElement, hoveredElement);
+        }
+
+        return true;
+    }
+
+    function stopMeasuring() {
+        altPressed = false;
+        tooltip.fade(false);
+        measure.hide();
+    }
 
     // -------------------------------------------------------------------------
     // Keyboard: Shift inspects
@@ -256,7 +292,7 @@
     document.addEventListener(
         "keydown",
         event => {
-            if (!enabled) {
+            if (!enabled || startMeasuring(event)) {
                 return;
             }
 
@@ -308,6 +344,18 @@
     document.addEventListener(
         "keyup",
         event => {
+            if (event.key === "Alt" && altPressed) {
+                event.preventDefault();
+                stopMeasuring();
+
+                // Back to following the cursor if Shift is still held.
+                if (shiftPressed) {
+                    scheduleReinspect();
+                }
+
+                return;
+            }
+
             if (event.key !== "Shift") {
                 return;
             }
@@ -376,7 +424,10 @@
 
     // Keep the focus border on the element while the page scrolls or
     // resizes. Capture phase catches scrolling inside nested containers.
-    const followInspected = () => overlays.position(inspectedElement);
+    const followInspected = () => {
+        overlays.position(inspectedElement);
+        measure.position();
+    };
 
     document.addEventListener("scroll", followInspected, true);
     window.addEventListener("resize", followInspected);
@@ -385,6 +436,7 @@
     // while Shift is held. A pinned tooltip is meant to stay, so keep it.
     window.addEventListener("blur", () => {
         cancelEditableHint();
+        stopMeasuring();
         shiftPressed = false;
 
         if (!tooltip.isPinned()) {

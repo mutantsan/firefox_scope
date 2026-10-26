@@ -4,6 +4,7 @@
     "use strict";
 
     let pinned = false;
+    let faded = false;
 
     // CSS declarations copied by the "Copy all" button.
     let copyAllText = "";
@@ -29,6 +30,7 @@
 
         whiteSpace: "pre",
         pointerEvents: "none",
+        transition: "opacity 0.15s",
 
         boxShadow: "0 4px 16px rgba(0, 0, 0, 0.35)"
     });
@@ -52,7 +54,7 @@
     // Pin bar (only visible while pinned)
     // -------------------------------------------------------------------------
 
-    const pinHint = "Click to copy · Esc to close";
+    const pinHint = "Click to copy · Alt to measure · Esc to close";
 
     const pinBar = document.createElement("div");
 
@@ -158,7 +160,7 @@
         pinTip.style.display = "none";
 
         Object.assign(tooltip.style, {
-            pointerEvents: "auto",
+            pointerEvents: faded ? "none" : "auto",
             userSelect: "text",
             borderColor: "#3b9eff"
         });
@@ -281,6 +283,17 @@
     // Content
     // -------------------------------------------------------------------------
 
+    // Faded while measuring, so the lines under it show through. It lets
+    // the pointer through too, to measure to elements beneath it.
+    function fade(value) {
+        faded = value;
+
+        Object.assign(tooltip.style, {
+            opacity: faded ? "0.25" : "",
+            pointerEvents: pinned && !faded ? "auto" : "none"
+        });
+    }
+
     // Shows `nodes` below the pin bar, next to the pointer.
     function show(nodes, allText, mouseX, mouseY) {
         copyAllText = allText;
@@ -307,6 +320,7 @@
         show,
         showMessage,
         position,
+        fade,
         makeCopyable
     };
 })(globalThis.Scope ??= {});

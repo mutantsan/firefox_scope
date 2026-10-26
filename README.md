@@ -26,6 +26,13 @@ click doesn't reach the page, so it won't follow links. Then:
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
 it.
 
+To measure the distance to another element, hold **Alt** (**Option** on a Mac)
+while an element is inspected, pinned or not, and point at the other element.
+It gets a red outline, and red lines show the gaps between the two in pixels.
+When one element is inside the other, the lines show how far each of its edges
+is from the outer one's. The tooltip fades while Alt is held, and you can point
+at elements underneath it. Release Alt to go back to inspecting.
+
 To turn it off for a site, click the toolbar button and check
 **Disable on this site**. This applies to the current hostname straight away,
 without reloading the page.
