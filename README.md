@@ -29,12 +29,17 @@ click doesn't reach the page, so it won't follow links. Then:
 
 - click a value to copy it, e.g. `#4a7ab8`
 - click a property name to copy the declaration, e.g. `color: #4a7ab8;`
+- click the element's name at the top to copy its selector with every class,
+  e.g. `h1#title.hero-heading`, or a class to copy just that class
 - click the copy icon in the top-right corner to copy every row as CSS
   declarations
 - drag to select any text as usual
 
+Close a pinned tooltip with **Esc**, the × button or a click elsewhere on
+the page.
+
 A pinned tooltip also shows where the element sits in the page, e.g.
-`main > section.hero > h1`. To inspect a nearby element that is hard to point
+`main › section.hero › h1`. To inspect a nearby element that is hard to point
 at, use the arrow keys: **↑** moves to the parent, **↓** to the first child,
 and **←** and **→** to the previous and next sibling. Elements that aren't
 displayed are skipped. Click a parent in the path to jump straight to it.
@@ -98,6 +103,9 @@ For a local file, it turns Scope off for all local files.
 - A box model diagram with each side's margin, border and padding, and the
   content size. The same regions are shaded on the page: margin in orange,
   border in yellow, padding in green and content in blue
+
+The tooltip opens with the element's tag, id and classes, and
+lists the rows in the same groups as above.
 
 When the hovered state differs from the normal state, both are shown:
 `normal → hover`.

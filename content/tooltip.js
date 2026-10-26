@@ -8,41 +8,62 @@
     // CSS declarations copied by the "Copy all" button.
     let copyAllText = "";
 
-    // Only a pinned tooltip takes the pointer, unless it's faded, see
-    // fade().
+    // Called by the close button, set by the inspector so closing also
+    // removes the page overlays.
+    let closeHandler = null;
+
+    /*
+     * Always dark, whatever the page's theme, like DevTools' highlighter:
+     * it sits over arbitrary content and has to read the same everywhere.
+     * Only a pinned tooltip takes the pointer, unless it's faded, see
+     * fade().
+     */
     Scope.ui.addStyles(`
         .tooltip {
+            --bg: #18181d;
+            --raised: #24242b;
+            --line: rgba(255, 255, 255, 0.08);
+            --fg: #ececf1;
+            --muted: #9a9aa6;
+            --dim: #686874;
+            --accent: #3b9eff;
+            --pass: #4ade80;
+            --fail: #f87171;
+            --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
             position: fixed;
             z-index: 2147483647;
             display: none;
 
-            padding: 10px 12px;
-            max-width: min(1200px, calc(100vw - 32px));
+            box-sizing: border-box;
+            width: max-content;
+            min-width: 320px;
+            max-width: min(520px, calc(100vw - 32px));
             max-height: calc(100vh - 22px);
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            scrollbar-width: thin;
-            scrollbar-color: #555 transparent;
+            flex-direction: column;
+            overflow: hidden;
 
-            background: #111;
-            color: #eee;
-            border: 1px solid #555;
-            border-radius: 6px;
+            background: var(--bg);
+            color: var(--fg);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.3),
+                0 12px 32px rgba(0, 0, 0, 0.35);
 
-            font-family: monospace;
-            font-size: 12px;
-            line-height: 1.6;
+            font: 12px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+            text-align: left;
 
-            white-space: pre;
             pointer-events: none;
-            transition: opacity 0.15s;
-
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+            transition: opacity 0.15s, border-color 0.15s;
         }
 
         .tooltip.pinned {
             user-select: text;
-            border-color: #3b9eff;
+            border-color: var(--accent);
+            box-shadow:
+                0 0 0 3px rgba(59, 158, 255, 0.18),
+                0 12px 32px rgba(0, 0, 0, 0.35);
         }
 
         .tooltip.pinned:not(.faded) {
@@ -53,47 +74,120 @@
             opacity: 0.25;
         }
 
-        .pin-bar,
-        .pin-tip,
-        .path {
-            margin-bottom: 6px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #333;
-
-            color: #888;
-        }
-
-        .pin-bar {
+        .head {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
+            flex: none;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 10px 12px 8px;
         }
 
-        .tooltip:not(.pinned) .pin-bar,
-        .tooltip:not(.pinned) .path,
-        .tooltip.pinned .pin-tip {
+        .head > :first-child {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .actions {
+            display: flex;
+            gap: 4px;
+            margin: -2px -4px 0 0;
+        }
+
+        .tooltip:not(.pinned) .actions,
+        .tooltip:not(.pinned) .path {
             display: none;
         }
 
-        .pin-status.flash {
-            color: #3b9eff;
-        }
+        .icon-button {
+            display: grid;
+            place-items: center;
+            width: 24px;
+            height: 24px;
+            padding: 0;
 
-        .copy-all {
-            padding: 3px 5px;
+            background: none;
+            color: var(--muted);
+            border: none;
+            border-radius: 6px;
 
-            background: #222;
-            color: #eee;
-            border: 1px solid #555;
-            border-radius: 4px;
-
-            font: inherit;
             cursor: pointer;
         }
 
-        .copy-all svg {
+        .icon-button:hover {
+            background: var(--raised);
+            color: var(--fg);
+        }
+
+        .icon-button:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+        }
+
+        .icon-button svg {
             display: block;
+        }
+
+        /* Only the body scrolls, so the header and the key hints stay in
+           view on a tall tooltip. */
+        .body {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 2px 12px 10px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-gutter: stable;
+            scrollbar-color: #4a4a55 transparent;
+        }
+
+        .foot {
+            display: flex;
+            flex: none;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 7px;
+            padding: 7px 12px;
+
+            background: rgba(255, 255, 255, 0.025);
+            border-top: 1px solid var(--line);
+            border-radius: 0 0 9px 9px;
+            color: var(--dim);
+
+            font-size: 11px;
+
+            /* Wraps at the tooltip's width rather than widening it. */
+            contain: inline-size;
+        }
+
+        .foot.flash {
+            color: var(--accent);
+        }
+
+        .hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+
+        kbd {
+            padding: 0 4px;
+            min-width: 8px;
+
+            background: var(--raised);
+            color: var(--muted);
+            border: 1px solid var(--line);
+            border-bottom-color: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+
+            font: 10px/15px var(--mono);
+            text-align: center;
+        }
+
+        .message {
+            padding: 10px 12px;
+            max-width: 320px;
+            color: var(--muted);
         }
 
         .copy-buffer {
@@ -103,6 +197,10 @@
 
         .copyable {
             cursor: pointer;
+        }
+
+        .pinned .copyable:hover {
+            color: var(--accent);
         }
     `);
 
@@ -125,91 +223,131 @@
         tooltip.addEventListener(type, event => event.stopPropagation());
     });
 
-    // -------------------------------------------------------------------------
-    // Pin bar (only visible while pinned)
-    // -------------------------------------------------------------------------
+    function element(tag, className) {
+        const el = document.createElement(tag);
 
-    const pinHint =
-        "Click to copy · Arrows to move · Alt to measure · Esc to close";
+        el.className = className;
 
-    const pinBar = document.createElement("div");
-
-    pinBar.className = "pin-bar";
-
-    const pinStatus = document.createElement("span");
-
-    pinStatus.className = "pin-status";
-    pinStatus.textContent = pinHint;
-
-    const copyAllButton = document.createElement("button");
-
-    copyAllButton.className = "copy-all";
-    copyAllButton.type = "button";
-    copyAllButton.title = "Copy all";
-    copyAllButton.setAttribute("aria-label", "Copy all");
-
-    // Two overlapping sheets, built with DOM calls rather than innerHTML.
-    // Page CSS can't reach into the shadow root, so plain presentation
-    // attributes are enough for the paint.
-    const svgNS = "http://www.w3.org/2000/svg";
-
-    function setAttributes(el, attributes) {
-        for (const [name, value] of Object.entries(attributes)) {
-            el.setAttribute(name, value);
-        }
+        return el;
     }
 
-    const copyIcon = document.createElementNS(svgNS, "svg");
+    // -------------------------------------------------------------------------
+    // Icons, built with DOM calls rather than innerHTML. Page CSS can't
+    // reach into the shadow root, so plain presentation attributes are
+    // enough for the paint.
+    // -------------------------------------------------------------------------
 
-    setAttributes(copyIcon, {
-        viewBox: "0 0 24 24",
-        width: "14",
-        height: "14",
-        fill: "none",
-        stroke: "#eee",
-        "stroke-width": "2",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round"
-    });
+    const svgNS = "http://www.w3.org/2000/svg";
 
-    const front = document.createElementNS(svgNS, "rect");
+    function icon(paths) {
+        const svg = document.createElementNS(svgNS, "svg");
 
-    setAttributes(front, {
-        x: "9", y: "9", width: "13", height: "13", rx: "2"
-    });
+        const attributes = {
+            viewBox: "0 0 24 24",
+            width: "14",
+            height: "14",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round"
+        };
 
-    const back = document.createElementNS(svgNS, "path");
+        for (const [name, value] of Object.entries(attributes)) {
+            svg.setAttribute(name, value);
+        }
 
-    back.setAttribute(
-        "d",
-        "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        for (const d of paths) {
+            const path = document.createElementNS(svgNS, "path");
+
+            path.setAttribute("d", d);
+            svg.append(path);
+        }
+
+        return svg;
+    }
+
+    function iconButton(label, paths, onClick) {
+        const button = element("button", "icon-button");
+
+        button.type = "button";
+        button.title = label;
+        button.setAttribute("aria-label", label);
+        button.append(icon(paths));
+        button.addEventListener("click", onClick);
+
+        return button;
+    }
+
+    // -------------------------------------------------------------------------
+    // Header actions and footer hints (actions only while pinned)
+    // -------------------------------------------------------------------------
+
+    // Two overlapping sheets, and a cross.
+    const copyAllButton = iconButton(
+        "Copy all",
+        [
+            "M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z",
+            "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        ],
+        () => copyText(copyAllText, "Copied all styles")
     );
 
-    copyIcon.append(front, back);
-    copyAllButton.append(copyIcon);
+    const closeButton = iconButton(
+        "Close (Esc)",
+        ["M18 6 6 18", "M6 6l12 12"],
+        () => closeHandler?.()
+    );
 
-    copyAllButton.addEventListener("click", () => {
-        copyText(copyAllText, "Copied all styles");
-    });
+    const actions = element("div", "actions");
 
-    pinBar.append(pinStatus, copyAllButton);
+    actions.append(copyAllButton, closeButton);
 
-    // Takes the pin bar's place until the tooltip is pinned. Shift is
-    // already held at this point, so a plain click is all that's left.
-    const pinTip = document.createElement("div");
+    // A key and what it does, e.g. [Esc] close.
+    function hint(key, text) {
+        const node = element("span", "hint");
+        const kbd = document.createElement("kbd");
 
-    pinTip.className = "pin-tip";
-    pinTip.textContent = "Click to pin";
+        kbd.textContent = key;
+        node.append(kbd, text);
+
+        return node;
+    }
+
+    // Shift is already held while unpinned, so a plain click is all that's
+    // left to pin.
+    function footHints() {
+        return pinned
+            ? [
+                hint("Click", "copy"),
+                hint("↑↓←→", "walk"),
+                hint("Alt", "measure"),
+                hint("Esc", "close")
+            ]
+            : [hint("Click", "pin"), hint("Alt", "measure")];
+    }
+
+    const foot = element("div", "foot");
+
+    function showHints() {
+        foot.classList.remove("flash");
+        foot.replaceChildren(...footHints());
+    }
 
     function pin() {
         pinned = true;
         tooltip.classList.add("pinned");
+        showHints();
     }
 
     function hide() {
         pinned = false;
         tooltip.classList.remove("pinned");
         tooltip.style.display = "none";
+    }
+
+    function onClose(handler) {
+        closeHandler = handler;
     }
 
     // -------------------------------------------------------------------------
@@ -219,15 +357,11 @@
     let statusTimer = null;
 
     function flashStatus(message) {
-        pinStatus.textContent = message;
-        pinStatus.classList.add("flash");
+        foot.textContent = message;
+        foot.classList.add("flash");
 
         clearTimeout(statusTimer);
-
-        statusTimer = setTimeout(() => {
-            pinStatus.textContent = pinHint;
-            pinStatus.classList.remove("flash");
-        }, 1200);
+        statusTimer = setTimeout(showHints, 1200);
     }
 
     async function copyText(text, message = "Copied " + text) {
@@ -326,18 +460,30 @@
         tooltip.classList.toggle("faded", value);
     }
 
-    // Shows `nodes` below the pin bar, next to the pointer, and `path`, the
-    // element's place in the page, under the bar while pinned. A pinned
-    // tooltip is being redrawn, e.g. after a setting changed in the popup
-    // or the arrow keys moved to another element, so it stays put rather
-    // than jumping to where the pointer left the page.
-    function show(nodes, allText, mouseX, mouseY, path) {
+    /*
+     * Shows `identity` (what the element is) in the header, `path` (its
+     * place in the page) under it while pinned, and `nodes` in the body,
+     * next to the pointer. A pinned tooltip is being redrawn, e.g. after a
+     * setting changed in the popup or the arrow keys moved to another
+     * element, so it stays put rather than jumping to where the pointer
+     * left the page.
+     */
+    function show(nodes, allText, mouseX, mouseY, path, identity) {
         copyAllText = allText;
 
-        // The pin tip stays right before the rows, which rely on it to drop
-        // their divider when they come first.
-        tooltip.replaceChildren(pinBar, path, pinTip, ...nodes);
-        tooltip.style.display = "block";
+        const head = element("div", "head");
+        const body = element("div", "body");
+
+        head.append(identity, actions);
+        body.append(...nodes);
+
+        // A redraw mid-flash keeps the message.
+        if (!foot.classList.contains("flash")) {
+            showHints();
+        }
+
+        tooltip.replaceChildren(head, path, body, foot);
+        tooltip.style.display = "flex";
 
         if (pinned) {
             keepInView();
@@ -348,7 +494,10 @@
 
     // A plain message in place of the styles, e.g. a hint.
     function showMessage(text, mouseX, mouseY) {
-        tooltip.textContent = text;
+        const message = element("div", "message");
+
+        message.textContent = text;
+        tooltip.replaceChildren(message);
         tooltip.style.display = "block";
 
         position(mouseX, mouseY);
@@ -359,6 +508,7 @@
         isVisible: () => tooltip.style.display !== "none",
         pin,
         hide,
+        onClose,
         show,
         showMessage,
         position,

@@ -24,9 +24,42 @@
         measure.hide();
     }
 
+    tooltip.onClose(hideInspector);
+
     // -------------------------------------------------------------------------
     // Inspection
     // -------------------------------------------------------------------------
+
+    // Rows worked out by Scope rather than read from CSS, and how each
+    // value is drawn.
+    const derivedRenderers = {
+        contrast: render.marks,
+        renderedFont: render.value
+    };
+
+    // The popup's row key: the four border colors share one.
+    function rowKey(property) {
+        return styles.borderColorProperties.includes(property)
+            ? "borderColor"
+            : property;
+    }
+
+    const rowGroups = new Map(
+        properties.propertyGroups.flatMap((group, groupIndex) =>
+            group.keys.map((key, keyIndex) => [
+                key,
+                { title: group.title, order: groupIndex * 100 + keyIndex }
+            ])
+        )
+    );
+
+    function propertyGroup(property) {
+        return rowGroups.get(rowKey(property));
+    }
+
+    function rowOrder(property) {
+        return propertyGroup(property).order;
+    }
 
     function inspectElement(el) {
         // Hovered first: measuring the normal state changes the page.
@@ -46,9 +79,7 @@
         const rows = [];
 
         styles.properties.forEach(property => {
-            const key = styles.borderColorProperties.includes(property)
-                ? "borderColor"
-                : property;
+            const key = rowKey(property);
 
             if (hiddenProperties.has(key)) {
                 return;
@@ -105,65 +136,61 @@
             ]);
         });
 
-        // Shown as CSS names, matching what a click copies.
-        const propertyWidth = Math.max(
-            ...rows.map(row => styles.toCssName(row[0]).length)
-        );
-
-        const lines = rows.map(([property, normalValue, hoverValue]) => {
-            const cssName = styles.toCssName(property);
-
-            return render.row(
-                cssName.padEnd(propertyWidth),
-                styles.declaration(property, normalValue),
-                normalValue,
-                hoverValue,
-                render.value
-            );
-        });
+        // Worked out by Scope rather than read from CSS, so they are left
+        // out of "copy all".
+        for (const key of ["contrast", "renderedFont"]) {
+            if (!hiddenProperties.has(key)) {
+                rows.push([key, normal[key], hover[key]]);
+            }
+        }
 
         const copyAllText = rows
+            .filter(([property]) => !derivedRenderers[property])
             .map(([property, normalValue]) => styles.declaration(property, normalValue))
             .join("\n");
 
-        // Worked out by Scope rather than read from CSS, so they get their
-        // own section and are left out of "copy all".
-        const derived = render.section();
+        // Grouped and ordered as the popup lists them. The sort is stable,
+        // so the four border colors keep their order.
+        rows.sort((a, b) => rowOrder(a[0]) - rowOrder(b[0]));
 
-        const derivedRows = [
-            ["contrast", render.marks],
-            ["renderedFont", render.value]
-        ]
-            .filter(([key]) => !hiddenProperties.has(key))
-            .map(([key, renderValue]) => [properties.propertyLabel(key), key, renderValue]);
+        const nodes = [];
+        let currentGroup = null;
 
-        const labelWidth = Math.max(...derivedRows.map(([label]) => label.length));
+        for (const [property, normalValue, hoverValue] of rows) {
+            const { title } = propertyGroup(property);
 
-        for (const [label, key, renderValue] of derivedRows) {
-            derived.append(
+            if (title !== currentGroup) {
+                currentGroup = title;
+                nodes.push(render.group(title));
+            }
+
+            const derived = derivedRenderers[property];
+
+            // Shown as CSS names, matching what a click copies.
+            const label = derived
+                ? properties.propertyLabel(property)
+                : styles.toCssName(property);
+
+            nodes.push(
                 render.row(
-                    label.padEnd(labelWidth),
-                    `${label}: ${normal[key]}`,
-                    normal[key],
-                    hover[key],
-                    renderValue
+                    label,
+                    derived
+                        ? `${label}: ${normalValue}`
+                        : styles.declaration(property, normalValue),
+                    normalValue,
+                    hoverValue,
+                    derived ?? render.value
                 )
             );
         }
 
-        const attributes = render.attributes(el);
-
         tooltip.show(
-            [
-                ...lines,
-                ...(derivedRows.length ? [derived] : []),
-                ...(attributes ? [attributes] : []),
-                render.boxModel(el)
-            ],
+            [render.props(nodes), render.boxModel(el)],
             copyAllText,
             mouseX,
             mouseY,
-            render.path(el, walkTo)
+            render.path(el, walkTo),
+            render.identity(el)
         );
 
         if (el !== inspectedElement) {

@@ -1,7 +1,8 @@
 /*
- * Builders for the tooltip's content: style rows, sections, the id and
- * class chips and the box model diagram. Built as nodes rather than markup,
- * so page-derived values are always inserted as plain text.
+ * Builders for the tooltip's content: the element's identity, style rows
+ * and their groups, the path and the box model diagram. Built as nodes
+ * rather than markup, so page-derived values are always inserted as plain
+ * text.
  */
 (function (Scope) {
     "use strict";
@@ -17,37 +18,102 @@
      * name never picks up an outer layer's tint.
      */
     Scope.ui.addStyles(`
-        .swatch {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            margin-left: 5px;
-            border: 1px solid #888;
-            border-radius: 2px;
-            vertical-align: -1px;
+        /* Identity: the selector in DevTools-like syntax colors. */
+        .selector {
+            font: 600 13px/1.4 var(--mono);
+            overflow-wrap: anywhere;
         }
 
-        .pass {
-            color: #93c47d;
+        .tag {
+            color: #ff7ab2;
         }
 
-        .fail {
-            color: #e06666;
+        .id {
+            color: #ffb86c;
         }
 
-        .arrow {
-            color: #888;
-        }
-
-        /* A long value, e.g. a font stack, wraps within its own column
-           instead of running past the tooltip's edge. */
-        .row {
+        .classes {
             display: flex;
-            gap: 2ch;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+            contain: inline-size;
         }
 
-        .row > :first-child {
+        .chip {
+            padding: 0 5px;
+            max-width: 100%;
+            box-sizing: border-box;
+
+            background: rgba(122, 196, 255, 0.1);
+            color: #8cc8ff;
+            border-radius: 4px;
+
+            font: 11px/18px var(--mono);
+            overflow-wrap: anywhere;
+        }
+
+        /* Path, while pinned */
+        .path {
             flex: none;
+            padding: 0 12px 8px;
+            color: var(--dim);
+            font: 11px/1.5 var(--mono);
+            overflow-wrap: anywhere;
+            contain: inline-size;
+        }
+
+        .crumb {
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .crumb:hover {
+            color: var(--accent);
+        }
+
+        .crumb.current {
+            color: var(--fg);
+            cursor: default;
+        }
+
+        .boundary {
+            color: #c4a0ff;
+            cursor: help;
+        }
+
+        /* One grid for every group, so all values line up. */
+        .props {
+            display: grid;
+            grid-template-columns: max-content auto;
+            column-gap: 16px;
+            font: 12px/1.6 var(--mono);
+        }
+
+        .group {
+            grid-column: 1 / -1;
+            margin: 8px 0 2px;
+            padding-top: 8px;
+            border-top: 1px solid var(--line);
+
+            color: var(--dim);
+            font: 600 10px/1.4 system-ui, sans-serif;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .group:first-child {
+            margin-top: 0;
+            padding-top: 2px;
+            border-top: none;
+        }
+
+        .row {
+            display: contents;
+        }
+
+        .row-name {
+            color: var(--muted);
         }
 
         .row-values {
@@ -56,45 +122,78 @@
             overflow-wrap: anywhere;
         }
 
-        .section,
-        .diagram {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #333;
-        }
-
-        /* When every row above is hidden, the pin bar already draws the
-           dividing line. */
-        .pin-tip + .section,
-        .pin-tip + .diagram {
-            margin-top: 0;
-            padding-top: 0;
-            border-top: none;
-        }
-
-        .chip {
-            padding: 0 4px;
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
+        .swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 6px;
             border-radius: 3px;
-            color: #f0f0f0;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+            vertical-align: -1px;
+
+            /* Under the color, so transparent ones show as such. */
+            background-image:
+                linear-gradient(45deg, #555 25%, transparent 25%, transparent 75%, #555 75%),
+                linear-gradient(45deg, #555 25%, #888 25%, #888 75%, #555 75%);
+            background-size: 6px 6px;
+            background-position: 0 0, 3px 3px;
         }
 
-        .attribute {
-            display: flex;
-            gap: 2ch;
+        .swatch > span {
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: inherit;
         }
 
-        .chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            min-width: 0;
-            overflow-wrap: anywhere;
+        /* The hovered value differs from the normal one. */
+        .arrow {
+            margin: 0 6px;
+            color: var(--accent);
+        }
+
+        .marks {
+            white-space: nowrap;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 0 5px;
+            border-radius: 4px;
+            font: 600 10px/16px system-ui, sans-serif;
+            vertical-align: 1px;
+        }
+
+        .badge.pass {
+            background: rgba(74, 222, 128, 0.14);
+            color: var(--pass);
+        }
+
+        .badge.fail {
+            background: rgba(248, 113, 113, 0.14);
+            color: var(--fail);
         }
 
         .zero {
-            color: #777;
+            color: var(--dim);
+        }
+
+        /* Box model diagram */
+        .diagram {
+            display: flex;
+            justify-content: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--line);
+            font: 11px var(--mono);
+        }
+
+        .props:empty + .diagram {
+            margin-top: 0;
+            padding-top: 2px;
+            border-top: none;
         }
 
         .layer {
@@ -107,7 +206,7 @@
             min-width: 0;
 
             border: var(--line) var(--tint);
-            border-radius: 3px;
+            border-radius: 4px;
             background: var(--fill);
 
             line-height: 1.5;
@@ -126,7 +225,7 @@
         .layer-name {
             justify-self: start;
             color: var(--tint);
-            font-size: 10px;
+            font: 10px system-ui, sans-serif;
         }
 
         .layer-middle {
@@ -145,36 +244,6 @@
 
             white-space: nowrap;
         }
-
-        .diagram {
-            display: flex;
-            justify-content: center;
-            font-size: 11px;
-        }
-
-        /* Wraps at the tooltip's width rather than widening it. */
-        .path {
-            contain: inline-size;
-            white-space: pre-wrap;
-            overflow-wrap: anywhere;
-        }
-
-        .crumb {
-            cursor: pointer;
-        }
-
-        .crumb:hover {
-            color: #eee;
-        }
-
-        .crumb.current {
-            color: #eee;
-            cursor: default;
-        }
-
-        .boundary {
-            cursor: help;
-        }
     `);
 
     function element(tag, className) {
@@ -183,6 +252,10 @@
         el.className = className;
 
         return el;
+    }
+
+    function round(n) {
+        return Math.round(n * 100) / 100;
     }
 
     // -------------------------------------------------------------------------
@@ -196,9 +269,12 @@
             return null;
         }
 
+        // The color on top of a checkerboard.
         const swatch = element("span", "swatch");
+        const fill = document.createElement("span");
 
-        swatch.style.background = color;
+        fill.style.background = color;
+        swatch.append(fill);
 
         return swatch;
     }
@@ -207,28 +283,30 @@
         const node = document.createElement("span");
         const swatch = colorSwatch(text);
 
-        node.append(text);
-
         if (swatch) {
             node.append(swatch);
         }
 
+        node.append(text);
         makeCopyable(node, text);
 
         return node;
     }
 
-    // Colors pass and fail marks, e.g. in "4.52:1  AA ✓  AAA ✗".
+    // Shows the pass and fail marks as badges, e.g. "4.52:1  AA ✓  AAA ✗".
     function marks(text) {
-        const node = document.createElement("span");
+        const node = element("span", "marks");
 
-        for (const part of text.split(/([✓✗])/)) {
-            if (part === "✓" || part === "✗") {
-                const mark = element("span", part === "✓" ? "pass" : "fail");
+        for (const part of text.split(/\s*(AAA? [✓✗])\s*/)) {
+            const level = part.match(/^(AAA?) ([✓✗])$/);
 
-                mark.textContent = part;
-                node.append(mark);
-            } else {
+            if (level) {
+                const pass = level[2] === "✓";
+                const badge = element("span", pass ? "badge pass" : "badge fail");
+
+                badge.textContent = `${level[1]} ${pass ? "✓" : "✗"}`;
+                node.append(badge);
+            } else if (part) {
                 node.append(part);
             }
         }
@@ -238,10 +316,11 @@
         return node;
     }
 
-    // A label and its value, followed by the hovered value when it differs.
+    // A name and its value, followed by the hovered value when it differs.
+    // Rows sit in the .props grid from props().
     function row(label, copyValue, normalValue, hoverValue, render) {
         const line = element("div", "row");
-        const name = document.createElement("span");
+        const name = element("span", "row-name");
 
         name.textContent = label;
         makeCopyable(name, copyValue);
@@ -254,8 +333,9 @@
             const arrow = element("span", "arrow");
 
             arrow.textContent = "→";
+            arrow.title = "On hover";
 
-            values.append("  ", arrow, "  ", render(hoverValue));
+            values.append(arrow, render(hoverValue));
         }
 
         line.append(name, values);
@@ -263,55 +343,78 @@
         return line;
     }
 
-    // A tooltip section below the CSS rows, set off by a divider line.
-    function section() {
-        return element("div", "section");
+    // A group's name, e.g. "Colors", above its rows.
+    function group(title) {
+        const node = element("div", "group");
+
+        node.textContent = title;
+
+        return node;
+    }
+
+    // The grid that holds the groups and rows.
+    function props(nodes) {
+        const node = element("div", "props");
+
+        node.append(...nodes);
+
+        return node;
     }
 
     // -------------------------------------------------------------------------
-    // Attributes
+    // Identity
     // -------------------------------------------------------------------------
 
-    // Shown like Markdown inline code, so each name stands out from its
-    // neighbours. Clicking one copies just that name.
-    function codeChip(text) {
-        const chip = element("span", "chip");
-
-        chip.textContent = text;
-        makeCopyable(chip, text);
-
-        return chip;
+    function classList(el) {
+        return el.getAttribute("class")?.trim().split(/\s+/).filter(Boolean) ?? [];
     }
 
-    // The element's id and class, when set, in their own section above the
-    // box model diagram. Each class gets its own chip, and long class lists
-    // wrap instead of widening the tooltip.
-    function attributes(el) {
-        const found = ["id", "class"]
-            .map(name => [name, el.getAttribute(name)?.trim()])
-            .filter(([, text]) => text);
+    /*
+     * What the element is: `h2#title`, and its classes as chips that wrap
+     * rather than widen the tooltip. Clicking the selector copies it with
+     * every class, a chip just that class.
+     */
+    function identity(el) {
+        const node = document.createElement("div");
+        const id = el.getAttribute("id")?.trim();
+        const classes = classList(el);
 
-        if (!found.length) {
-            return null;
+        const selector = element("div", "selector");
+        const name = document.createElement("span");
+        const tag = element("span", "tag");
+
+        tag.textContent = el.localName;
+        name.append(tag);
+
+        if (id) {
+            const idNode = element("span", "id");
+
+            idNode.textContent = "#" + id;
+            name.append(idNode);
         }
 
-        const node = section();
+        makeCopyable(
+            name,
+            el.localName +
+                (id ? "#" + CSS.escape(id) : "") +
+                classes.map(c => "." + CSS.escape(c)).join("")
+        );
 
-        const nameWidth = Math.max(...found.map(([name]) => name.length));
+        selector.append(name);
+        node.append(selector);
 
-        for (const [name, text] of found) {
-            const line = element("div", "attribute");
+        if (classes.length) {
+            const chips = element("div", "classes");
 
-            const label = document.createElement("span");
+            for (const className of classes) {
+                const chip = element("span", "chip");
 
-            label.textContent = name.padEnd(nameWidth);
+                chip.textContent = "." + className;
+                makeCopyable(chip, className);
+                chips.append(chip);
+            }
 
-            const chips = element("span", "chips");
-
-            chips.append(...text.split(/\s+/).map(codeChip));
-
-            line.append(label, chips);
-            node.append(line);
+            node.append(chips);
         }
 
         return node;
@@ -329,7 +432,7 @@
     // class lists short.
     function crumbLabel(el) {
         const id = el.getAttribute("id")?.trim();
-        const className = el.getAttribute("class")?.trim().split(/\s+/)[0];
+        const className = classList(el)[0];
 
         if (id) {
             return `${el.localName}#${id}`;
@@ -342,7 +445,7 @@
     // top of its shadow root, or a slot and an element it shows.
     function separator(from, to) {
         if (from.getRootNode() === to.getRootNode()) {
-            return " > ";
+            return " › ";
         }
 
         const boundary = element("span", "boundary");
@@ -354,7 +457,7 @@
     }
 
     /*
-     * Where `el` sits in the page, e.g. `main > section.hero > h1`. It
+     * Where `el` sits in the page, e.g. `main › section.hero › h1`. It
      * follows the rendered tree, like the ↑ key, so it passes from a
      * shadow root to its host. Clicking an ancestor calls `select` with it.
      */
@@ -372,7 +475,7 @@
 
         if (ancestors.length > pathDepth) {
             ancestors.shift();
-            node.append("… > ");
+            node.append("… › ");
         }
 
         ancestors.forEach((ancestor, i) => {
@@ -395,10 +498,6 @@
     // -------------------------------------------------------------------------
     // Box model diagram
     // -------------------------------------------------------------------------
-
-    function round(n) {
-        return Math.round(n * 100) / 100;
-    }
 
     // Zero sides are shown as a dash, like DevTools, so the non-zero ones
     // stand out.
@@ -485,5 +584,5 @@
         return diagram;
     }
 
-    Scope.render = { value, marks, row, section, attributes, path, boxModel };
+    Scope.render = { value, marks, row, group, props, identity, path, boxModel };
 })(globalThis.Scope ??= {});
