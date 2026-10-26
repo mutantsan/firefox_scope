@@ -37,6 +37,7 @@
       "js": [
         "content/ui.js",
         "content/colors.js",
+        "content/fonts.js",
         "content/styles.js",
         "content/overlays.js",
         "content/tooltip.js",

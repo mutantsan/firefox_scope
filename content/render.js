@@ -6,7 +6,7 @@
 (function (Scope) {
     "use strict";
 
-    const { getHexColor } = Scope.colors;
+    const { findColor } = Scope.colors;
     const { boxLayers, boxSides } = Scope.styles;
     const { makeCopyable } = Scope.tooltip;
 
@@ -15,7 +15,7 @@
     // -------------------------------------------------------------------------
 
     function colorSwatch(value) {
-        const color = getHexColor(value);
+        const color = findColor(value);
 
         if (!color) {
             return null;

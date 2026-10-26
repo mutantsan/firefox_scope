@@ -111,27 +111,35 @@
             .map(([property, normalValue]) => styles.declaration(property, normalValue))
             .join("\n");
 
-        // Computed by Scope rather than read from CSS, so it gets its own
-        // section and is left out of "copy all".
-        const contrast = render.section();
-        const contrastLabel = "WCAG contrast";
+        // Worked out by Scope rather than read from CSS, so they get their
+        // own section and are left out of "copy all".
+        const derived = render.section();
 
-        contrast.append(
-            render.row(
-                contrastLabel,
-                `${contrastLabel}: ${normal.contrast}`,
-                normal.contrast,
-                hover.contrast,
-                render.marks
-            )
-        );
+        const derivedRows = [
+            ["WCAG contrast", "contrast", render.marks],
+            ["rendered font", "renderedFont", render.value]
+        ];
+
+        const labelWidth = Math.max(...derivedRows.map(([label]) => label.length));
+
+        for (const [label, key, renderValue] of derivedRows) {
+            derived.append(
+                render.row(
+                    label.padEnd(labelWidth),
+                    `${label}: ${normal[key]}`,
+                    normal[key],
+                    hover[key],
+                    renderValue
+                )
+            );
+        }
 
         const attributes = render.attributes(el);
 
         tooltip.show(
             [
                 ...lines,
-                contrast,
+                derived,
                 ...(attributes ? [attributes] : []),
                 render.boxModel(el)
             ],

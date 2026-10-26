@@ -34,12 +34,19 @@ without reloading the page.
 
 - Colors: `color`, `backgroundColor`, border colors (collapsed to one
   `borderColor` row when all four sides match) and `outlineColor`, as hex
-  values with a color swatch
-- Contrast: the WCAG 2 contrast ratio of the text against the background it
-  sits on, with AA and AAA pass/fail. Translucent backgrounds are blended
-  with those behind them, large text uses the lower thresholds, and the
-  result is `unknown` over a background image or gradient
-- Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`
+  values with a color swatch. Modern colors such as `oklch()`, `lab()` and
+  `color(display-p3 …)` are converted to hex too, unless they fall outside
+  the sRGB range a hex value can hold, in which case they're shown as
+  written
+- Contrast: the WCAG 2 contrast ratio of the text against what is visually
+  behind it, with AA and AAA pass/fail. Translucent backgrounds and
+  `opacity` are blended with what's behind them, elements positioned behind
+  the text (not just its parents) count, and large text uses the lower
+  thresholds. The result is `unknown` when an image, gradient or video shows
+  through behind the text
+- Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, and the
+  rendered font: the first font in the `fontFamily` list that is installed
+  or loaded, which is the one the text is actually drawn in
 - Box: `margin`, `padding`, `width`, `height`, `border`, `borderRadius`
 - Layout: `display`, `position`, `opacity`
 - A box model diagram with each side's margin, border and padding, and the

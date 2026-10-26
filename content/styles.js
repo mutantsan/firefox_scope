@@ -2,7 +2,8 @@
 (function (Scope) {
     "use strict";
 
-    const { formatValue, contrastSummary } = Scope.colors;
+    const { formatValue, contrastSummary, elementsBehind } = Scope.colors;
+    const { renderedFont } = Scope.fonts;
 
     const properties = [
         "color",
@@ -93,7 +94,9 @@
     // Style collection
     // -------------------------------------------------------------------------
 
-    function getStyles(el) {
+    // `behind` is found from the original when `el` is a clone, see
+    // contrastSummary().
+    function getStyles(el, behind = elementsBehind(el)) {
         const computed = window.getComputedStyle(el);
         const result = {};
 
@@ -104,7 +107,8 @@
             );
         });
 
-        result.contrast = contrastSummary(el, computed);
+        result.contrast = contrastSummary(el, computed, behind);
+        result.renderedFont = renderedFont(el, computed);
 
         // outline-color computes to a color (currentcolor by default) even
         // when no outline is drawn, so its row is only shown when one is.
@@ -288,12 +292,12 @@
     // overrides, so position, display and size come out as the page styles
     // them. It's removed before the next paint, so the page never visibly
     // shifts.
-    function getCloneStyles(el, place) {
+    function getCloneStyles(el, place, behind) {
         const clone = inertClone(el);
 
         el[place](clone);
 
-        const styles = getStyles(clone);
+        const styles = getStyles(clone, behind);
 
         clone.remove();
 
@@ -322,7 +326,8 @@
             return hover;
         }
 
-        const normal = getCloneStyles(el, "before");
+        const behind = elementsBehind(el);
+        const normal = getCloneStyles(el, "before", behind);
 
         const changed = Object.keys(normal).filter(
             property => normal[property] !== hover[property]
@@ -332,7 +337,7 @@
             return normal;
         }
 
-        const after = getCloneStyles(el, "after");
+        const after = getCloneStyles(el, "after", behind);
 
         for (const property of changed) {
             if (after[property] !== normal[property]) {
