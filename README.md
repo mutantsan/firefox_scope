@@ -6,7 +6,8 @@ A small Firefox extension for checking an element's CSS without opening DevTools
 
 Hover over an element and hold **Shift**. A tooltip shows the element's key
 computed styles, and a blue focus border marks the element being inspected.
-Release Shift to dismiss it.
+Keep holding Shift and move the pointer to inspect other elements. Release
+Shift to dismiss it.
 
 Shift is ignored while a text field has focus (inputs, textareas and rich-text
 editors), so typing capitals doesn't open the tooltip. Holding Shift on its own
@@ -34,6 +35,10 @@ without reloading the page.
 - Colors: `color`, `backgroundColor`, border colors (collapsed to one
   `borderColor` row when all four sides match) and `outlineColor`, as hex
   values with a color swatch
+- Contrast: the WCAG 2 contrast ratio of the text against the background it
+  sits on, with AA and AAA pass/fail. Translucent backgrounds are blended
+  with those behind them, large text uses the lower thresholds, and the
+  result is `unknown` over a background image or gradient
 - Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`
 - Box: `margin`, `padding`, `width`, `height`, `border`, `borderRadius`
 - Layout: `display`, `position`, `opacity`

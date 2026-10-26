@@ -31,6 +31,10 @@
         "borderLeftColor"
     ];
 
+    // Rows computed by Scope rather than read from CSS, so they're left out
+    // of "copy all" and aren't copied as declarations.
+    const derivedRows = new Set(["contrast"]);
+
     let enabled = true;
     let hoveredElement = null;
     let inspectedElement = null;
@@ -180,6 +184,7 @@
 
     copyAllButton.addEventListener("click", () => {
         const css = currentRows
+            .filter(([property]) => !derivedRows.has(property))
             .map(([property, normalValue]) => declaration(property, normalValue))
             .join("\n");
 
@@ -475,6 +480,130 @@
     }
 
     // -------------------------------------------------------------------------
+    // Contrast (WCAG 2)
+    // -------------------------------------------------------------------------
+
+    function parseColor(value) {
+        const match = value.match(
+            /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*[,/]\s*([\d.]+)(%?))?\s*\)$/i
+        );
+
+        if (!match) {
+            return null;
+        }
+
+        let alpha = match[4] === undefined ? 1 : Number(match[4]);
+
+        if (match[5]) {
+            alpha /= 100;
+        }
+
+        return [Number(match[1]), Number(match[2]), Number(match[3]), alpha];
+    }
+
+    // Source-over compositing of `top` onto an opaque `bottom`.
+    function blend(top, bottom) {
+        const a = top[3];
+
+        return [0, 1, 2]
+            .map(i => top[i] * a + bottom[i] * (1 - a))
+            .concat(1);
+    }
+
+    function luminance([r, g, b]) {
+        const [lr, lg, lb] = [r, g, b].map(channel => {
+            const c = channel / 255;
+
+            return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+
+        return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    }
+
+    function parentOf(el) {
+        // Step out of shadow roots to the host element.
+        return el.parentElement || el.getRootNode().host || null;
+    }
+
+    /*
+     * The background the text actually sits on: walk up until an opaque
+     * background color, blending translucent ones on the way, and fall back
+     * to white like the browser canvas. A background image or gradient on
+     * the way makes the result a guess, so return a reason instead.
+     */
+    function effectiveBackground(el, computed) {
+        const layers = [];
+
+        for (let node = el; node; node = parentOf(node)) {
+            const style = node === el ? computed : window.getComputedStyle(node);
+
+            if (style.backgroundImage !== "none") {
+                return { reason: "background image" };
+            }
+
+            const color = parseColor(style.backgroundColor);
+
+            if (!color) {
+                return { reason: "unsupported color" };
+            }
+
+            if (color[3] > 0) {
+                layers.push(color);
+            }
+
+            if (color[3] >= 1) {
+                break;
+            }
+        }
+
+        let background = [255, 255, 255, 1];
+
+        for (const layer of layers.reverse()) {
+            background = blend(layer, background);
+        }
+
+        return { color: background };
+    }
+
+    // Large text per WCAG: 18pt (24px), or 14pt (18.66px) when bold.
+    function isLargeText(computed) {
+        const size = parseFloat(computed.fontSize);
+
+        return size >= 24 || (size >= 18.66 && Number(computed.fontWeight) >= 700);
+    }
+
+    function contrastSummary(el, computed) {
+        const background = effectiveBackground(el, computed);
+
+        if (!background.color) {
+            return `unknown (${background.reason})`;
+        }
+
+        const text = parseColor(computed.color);
+
+        if (!text) {
+            return "unknown (unsupported color)";
+        }
+
+        const [light, dark] = [
+            luminance(blend(text, background.color)),
+            luminance(background.color)
+        ].sort((a, b) => b - a);
+
+        const ratio = (light + 0.05) / (dark + 0.05);
+        const large = isLargeText(computed);
+
+        // Truncated, not rounded, so 4.499 never displays as passing 4.5.
+        const shown = Math.floor(ratio * 100) / 100;
+        const mark = min => (ratio >= min ? "✓" : "✗");
+
+        return (
+            `${shown}:1  AA ${mark(large ? 3 : 4.5)}  AAA ${mark(large ? 4.5 : 7)}` +
+            (large ? "  large text" : "")
+        );
+    }
+
+    // -------------------------------------------------------------------------
     // Style collection
     // -------------------------------------------------------------------------
 
@@ -488,6 +617,8 @@
                 computed[property]
             );
         });
+
+        result.contrast = contrastSummary(el, computed);
 
         return result;
     }
@@ -577,6 +708,27 @@
 
         if (swatch) {
             node.append(swatch);
+        }
+
+        makeCopyable(node, value);
+
+        return node;
+    }
+
+    // Colors pass and fail marks, e.g. in "4.52:1  AA ✓  AAA ✗".
+    function renderMarks(value) {
+        const node = document.createElement("span");
+
+        for (const part of value.split(/([✓✗])/)) {
+            if (part === "✓" || part === "✗") {
+                const mark = document.createElement("span");
+
+                mark.textContent = part;
+                mark.style.color = part === "✓" ? "#93c47d" : "#e06666";
+                node.append(mark);
+            } else {
+                node.append(part);
+            }
         }
 
         makeCopyable(node, value);
@@ -787,6 +939,10 @@
                 normal[property],
                 hover[property]
             ]);
+
+            if (property === "backgroundColor") {
+                rows.push(["contrast", normal.contrast, hover.contrast]);
+            }
         });
 
         const propertyWidth = Math.max(
@@ -800,12 +956,21 @@
 
                 name.textContent = property;
 
-                makeCopyable(name, declaration(property, normalValue));
+                const render = derivedRows.has(property)
+                    ? renderMarks
+                    : renderValue;
+
+                makeCopyable(
+                    name,
+                    derivedRows.has(property)
+                        ? `${property}: ${normalValue}`
+                        : declaration(property, normalValue)
+                );
 
                 line.append(
                     name,
                     " ".repeat(propertyWidth - property.length + 2),
-                    renderValue(normalValue)
+                    render(normalValue)
                 );
 
                 if (normalValue !== hoverValue) {
@@ -818,7 +983,7 @@
                         "  ",
                         arrow,
                         "  ",
-                        renderValue(hoverValue)
+                        render(hoverValue)
                     );
                 }
 
@@ -878,6 +1043,32 @@
     // Mouse tracking
     // -------------------------------------------------------------------------
 
+    /*
+     * While Shift is held the tooltip follows the element under the cursor.
+     * Inspecting clones the element, which is costly for large ones, so it
+     * runs at most once per frame and only when the element changes.
+     */
+    let reinspectFrame = null;
+
+    function scheduleReinspect() {
+        if (reinspectFrame) {
+            return;
+        }
+
+        reinspectFrame = requestAnimationFrame(() => {
+            reinspectFrame = null;
+
+            if (
+                shiftPressed &&
+                !pinned &&
+                hoveredElement &&
+                hoveredElement !== inspectedElement
+            ) {
+                inspectElement(hoveredElement);
+            }
+        });
+    }
+
     document.addEventListener(
         "mousemove",
         event => {
@@ -892,12 +1083,12 @@
                 hoveredElement = event.target;
             }
 
-            if (
-                shiftPressed &&
-                !pinned &&
-                tooltip.style.display !== "none"
-            ) {
-                positionTooltip();
+            if (shiftPressed && !pinned) {
+                if (hoveredElement !== inspectedElement) {
+                    scheduleReinspect();
+                } else if (tooltip.style.display !== "none") {
+                    positionTooltip();
+                }
             }
         },
         true
