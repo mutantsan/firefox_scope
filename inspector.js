@@ -300,7 +300,8 @@
      * itself, so it doesn't change the computed styles being reported.
      */
     /*
-     * The box model is shaded with the same colors as the tooltip's diagram.
+     * The box model is shaded with Firefox DevTools' highlighter colors, also
+     * used by the tooltip's diagram.
      * Each region is drawn as an overlay's border, sized to match the
      * element's own widths: the margin overlay surrounds the border box, the
      * highlight's border covers the element's border, and an inner overlay's
@@ -315,7 +316,7 @@
 
         boxSizing: "content-box",
         borderStyle: "solid",
-        borderColor: "rgba(246, 178, 107, 0.4)",
+        borderColor: "rgba(237, 255, 100, 0.6)",
 
         pointerEvents: "none"
     });
@@ -329,8 +330,7 @@
 
         boxSizing: "border-box",
         borderStyle: "solid",
-        borderColor: "rgba(255, 217, 102, 0.45)",
-        outline: "2px solid #3b9eff",
+        borderColor: "rgba(68, 68, 68, 0.6)",
 
         pointerEvents: "none"
     });
@@ -343,13 +343,43 @@
 
         boxSizing: "border-box",
         borderStyle: "solid",
-        borderColor: "rgba(147, 196, 125, 0.45)",
-        background: "rgba(59, 158, 255, 0.18)",
+        borderColor: "rgba(106, 90, 205, 0.6)",
+        background: "rgba(137, 206, 235, 0.6)",
         backgroundClip: "padding-box"
     });
 
     highlight.append(paddingOverlay);
-    document.documentElement.append(marginOverlay, highlight);
+
+    // Dashed guides along the border box's edges, spanning the viewport,
+    // like DevTools' highlighter: top, right, bottom, left.
+    const guides = [0, 1, 2, 3].map(i => {
+        const guide = document.createElement("div");
+        const horizontal = i % 2 === 0;
+
+        Object.assign(guide.style, {
+            position: "fixed",
+            zIndex: "2147483646",
+            display: "none",
+
+            left: horizontal ? "0" : "",
+            top: horizontal ? "" : "0",
+            width: horizontal ? "100%" : "0",
+            height: horizontal ? "0" : "100%",
+            [horizontal ? "borderTop" : "borderLeft"]: "1px dashed #0099cc",
+
+            pointerEvents: "none"
+        });
+
+        return guide;
+    });
+
+    document.documentElement.append(marginOverlay, highlight, ...guides);
+
+    function setOverlaysDisplay(display) {
+        for (const overlay of [marginOverlay, highlight, ...guides]) {
+            overlay.style.display = display;
+        }
+    }
 
     // Border widths can't be negative, so negative margins aren't shaded.
     function sideWidths(computed, side) {
@@ -382,6 +412,13 @@
 
         paddingOverlay.style.borderWidth = padding;
 
+        const [guideTop, guideRight, guideBottom, guideLeft] = guides;
+
+        guideTop.style.top = rect.top + "px";
+        guideBottom.style.top = rect.bottom - 1 + "px";
+        guideLeft.style.left = rect.left + "px";
+        guideRight.style.left = rect.right - 1 + "px";
+
         Object.assign(marginOverlay.style, {
             left: rect.left - marginLeft + "px",
             top: rect.top - marginTop + "px",
@@ -405,8 +442,7 @@
 
         inspectedElement = null;
         tooltip.style.display = "none";
-        highlight.style.display = "none";
-        marginOverlay.style.display = "none";
+        setOverlaysDisplay("none");
     }
 
     // -------------------------------------------------------------------------
@@ -744,9 +780,9 @@
         // Solid fills rather than translucent tints, which would compound
         // as the layers nest. The border is a solid line, like DevTools, so
         // it reads as the element's edge rather than another spacing area.
-        { name: "margin", tint: "#f6b26b", fill: "#3a2a1a", line: "1px dashed", side: s => `margin-${s}` },
-        { name: "border", tint: "#ffd966", fill: "#38321a", line: "2px solid", side: s => `border-${s}-width` },
-        { name: "padding", tint: "#93c47d", fill: "#22301c", line: "1px dashed", side: s => `padding-${s}` }
+        { name: "margin", tint: "#edff64", fill: "#33361a", line: "1px dashed", side: s => `margin-${s}` },
+        { name: "border", tint: "#aaaaaa", fill: "#2a2a2a", line: "2px solid", side: s => `border-${s}-width` },
+        { name: "padding", tint: "#a99eff", fill: "#26213f", line: "1px dashed", side: s => `padding-${s}` }
     ];
 
     const boxSides = ["top", "right", "bottom", "left"];
@@ -865,9 +901,9 @@
             margin: "4px 0",
             padding: "2px 8px",
 
-            border: "1px solid #6fa8dc",
+            border: "1px solid #89ceeb",
             borderRadius: "3px",
-            background: "#1c2c3c",
+            background: "#1c2f3a",
 
             whiteSpace: "nowrap"
         });
@@ -1000,8 +1036,7 @@
         positionTooltip();
 
         inspectedElement = el;
-        highlight.style.display = "block";
-        marginOverlay.style.display = "block";
+        setOverlaysDisplay("block");
 
         positionHighlight();
     }
