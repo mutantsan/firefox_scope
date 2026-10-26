@@ -1,5 +1,7 @@
 # Scope
 
+![Scope's pinned tooltip showing computed styles for a highlighted heading](image.png)
+
 A small Firefox extension for checking an element's CSS without opening DevTools.
 
 Hover over an element and hold **Shift**. A tooltip shows the element's key
