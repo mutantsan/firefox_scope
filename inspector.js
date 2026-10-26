@@ -933,6 +933,82 @@
     }
 
     // -------------------------------------------------------------------------
+    // Attributes
+    // -------------------------------------------------------------------------
+
+    // Shown like Markdown inline code, so each name stands out from its
+    // neighbours. Clicking one copies just that name.
+    function codeChip(value) {
+        const chip = document.createElement("span");
+
+        chip.textContent = value;
+        makeCopyable(chip, value);
+
+        Object.assign(chip.style, {
+            padding: "0 4px",
+            background: "#2a2a2a",
+            border: "1px solid #3a3a3a",
+            borderRadius: "3px",
+            color: "#f0f0f0"
+        });
+
+        return chip;
+    }
+
+    // The element's id and class, when set, in their own section above the
+    // box model diagram. Each class gets its own chip, and long class lists
+    // wrap instead of widening the tooltip.
+    function renderAttributes(el) {
+        const attributes = ["id", "class"]
+            .map(name => [name, el.getAttribute(name)?.trim()])
+            .filter(([, value]) => value);
+
+        if (!attributes.length) {
+            return null;
+        }
+
+        const section = document.createElement("div");
+
+        Object.assign(section.style, {
+            marginTop: "8px",
+            paddingTop: "8px",
+            borderTop: "1px solid #333"
+        });
+
+        const nameWidth = Math.max(...attributes.map(([name]) => name.length));
+
+        for (const [name, value] of attributes) {
+            const line = document.createElement("div");
+
+            Object.assign(line.style, {
+                display: "flex",
+                gap: "2ch"
+            });
+
+            const label = document.createElement("span");
+
+            label.textContent = name.padEnd(nameWidth);
+
+            const chips = document.createElement("span");
+
+            Object.assign(chips.style, {
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                minWidth: "0",
+                overflowWrap: "anywhere"
+            });
+
+            chips.append(...value.split(/\s+/).map(codeChip));
+
+            line.append(label, chips);
+            section.append(line);
+        }
+
+        return section;
+    }
+
+    // -------------------------------------------------------------------------
     // Inspection
     // -------------------------------------------------------------------------
 
@@ -1029,7 +1105,15 @@
 
         currentRows = rows;
 
-        tooltip.replaceChildren(pinBar, pinTip, ...lines, renderBoxModel(el));
+        const attributes = renderAttributes(el);
+
+        tooltip.replaceChildren(
+            pinBar,
+            pinTip,
+            ...lines,
+            ...(attributes ? [attributes] : []),
+            renderBoxModel(el)
+        );
 
         tooltip.style.display = "block";
 
