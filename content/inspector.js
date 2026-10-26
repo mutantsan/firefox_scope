@@ -45,10 +45,6 @@
 
         const rows = [];
 
-        const showGap =
-            styles.isGapContainer(normal.display) ||
-            styles.isGapContainer(hover.display);
-
         styles.properties.forEach(property => {
             const key = styles.borderColorProperties.includes(property)
                 ? "borderColor"
@@ -65,7 +61,7 @@
                 return;
             }
 
-            if (property === "gap" && !showGap) {
+            if (!styles.isRelevant(property, normal, hover)) {
                 return;
             }
 

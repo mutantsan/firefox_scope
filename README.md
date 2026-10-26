@@ -64,8 +64,14 @@ without reloading the page.
 - Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, and the
   rendered font: the first font in the `fontFamily` list that is installed
   or loaded, which is the one the text is actually drawn in
-- Box: `margin`, `padding`, `width`, `height`, `border`, `borderRadius`
-- Layout: `display`, `position`, `opacity`
+- Box: `margin`, `padding`, `width`, `height`, `boxSizing`, `border`,
+  `borderRadius`
+- Layout: `display`, `position`, `zIndex`, `overflow`, `transform`,
+  `opacity`. Rows that only matter for some elements appear only there:
+  `justifyContent`, `alignItems` and `gap` on flex and grid containers,
+  `flexDirection` on flex containers, `gridTemplateColumns` and
+  `gridTemplateRows` on grid containers, and `zIndex` on positioned elements
+  and flex and grid items
 - A box model diagram with each side's margin, border and padding, and the
   content size. The same regions are shaded on the page: margin in orange,
   border in yellow, padding in green and content in blue

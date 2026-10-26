@@ -21,11 +21,24 @@
         },
         {
             title: "Box",
-            keys: ["margin", "padding", "width", "height", "border", "borderRadius"]
+            keys: ["margin", "padding", "width", "height", "boxSizing", "border", "borderRadius"]
         },
         {
             title: "Layout",
-            keys: ["display", "gap", "position", "opacity"]
+            keys: [
+                "display",
+                "flexDirection",
+                "justifyContent",
+                "alignItems",
+                "gridTemplateColumns",
+                "gridTemplateRows",
+                "gap",
+                "position",
+                "zIndex",
+                "overflow",
+                "transform",
+                "opacity"
+            ]
         }
     ];
 

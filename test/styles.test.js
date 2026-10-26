@@ -7,7 +7,7 @@ require("../content/styles.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { isDefault, isGapContainer, toCssName, declaration, collapseBorderColors } = Scope.styles;
+const { isDefault, isGapContainer, isRelevant, toCssName, declaration, collapseBorderColors } = Scope.styles;
 
 test("isDefault recognizes default values", () => {
     assert.equal(isDefault("margin", "0px"), true);
@@ -22,6 +22,20 @@ test("isDefault recognizes default values", () => {
     assert.equal(isDefault("opacity", "1"), true);
     assert.equal(isDefault("opacity", "0.5"), false);
     assert.equal(isDefault("gap", "normal"), true);
+    assert.equal(isDefault("boxSizing", "content-box"), true);
+    assert.equal(isDefault("boxSizing", "border-box"), false);
+    assert.equal(isDefault("flexDirection", "row"), true);
+    assert.equal(isDefault("flexDirection", "column"), false);
+    assert.equal(isDefault("justifyContent", "normal"), true);
+    assert.equal(isDefault("alignItems", "center"), false);
+    assert.equal(isDefault("gridTemplateColumns", "none"), true);
+    assert.equal(isDefault("gridTemplateRows", "100px 1fr"), false);
+    assert.equal(isDefault("zIndex", "auto"), true);
+    assert.equal(isDefault("zIndex", "0"), false);
+    assert.equal(isDefault("overflow", "visible"), true);
+    assert.equal(isDefault("overflow", "visible hidden"), false);
+    assert.equal(isDefault("transform", "none"), true);
+    assert.equal(isDefault("transform", "matrix(1, 0, 0, 1, 10, 0)"), false);
 });
 
 test("isDefault never hides properties without a default", () => {
@@ -37,6 +51,28 @@ test("isGapContainer matches flex and grid displays", () => {
     assert.equal(isGapContainer("block flex"), true);
     assert.equal(isGapContainer("block"), false);
     assert.equal(isGapContainer("flow-root"), false);
+});
+
+test("isRelevant limits container and z-index rows to where they apply", () => {
+    const state = (display, position = "static", isLayoutItem = false) =>
+        ({ display, position, isLayoutItem });
+
+    const block = state("block");
+    const flex = state("inline-flex");
+    const grid = state("grid");
+
+    assert.equal(isRelevant("color", block, block), true);
+    assert.equal(isRelevant("gap", block, block), false);
+    assert.equal(isRelevant("gap", block, grid), true);
+    assert.equal(isRelevant("flexDirection", flex, flex), true);
+    assert.equal(isRelevant("flexDirection", grid, grid), false);
+    assert.equal(isRelevant("justifyContent", grid, grid), true);
+    assert.equal(isRelevant("alignItems", block, block), false);
+    assert.equal(isRelevant("gridTemplateColumns", grid, grid), true);
+    assert.equal(isRelevant("gridTemplateRows", flex, flex), false);
+    assert.equal(isRelevant("zIndex", block, block), false);
+    assert.equal(isRelevant("zIndex", state("block", "relative"), block), true);
+    assert.equal(isRelevant("zIndex", state("block", "static", true), block), true);
 });
 
 test("toCssName and declaration write CSS", () => {

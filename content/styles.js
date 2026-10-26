@@ -21,9 +21,18 @@
         "padding",
         "width",
         "height",
+        "boxSizing",
         "display",
+        "flexDirection",
+        "justifyContent",
+        "alignItems",
+        "gridTemplateColumns",
+        "gridTemplateRows",
         "gap",
         "position",
+        "zIndex",
+        "overflow",
+        "transform",
         "border",
         "borderRadius",
         "opacity"
@@ -53,17 +62,53 @@
         border: value => /^0px\b/.test(value),
         position: value => value === "static",
         opacity: value => parseFloat(value) === 1,
-        gap: value => value === "normal"
+        gap: value => value === "normal",
+        boxSizing: value => value === "content-box",
+        flexDirection: value => value === "row",
+        justifyContent: value => value === "normal",
+        alignItems: value => value === "normal",
+        gridTemplateColumns: value => value === "none",
+        gridTemplateRows: value => value === "none",
+        zIndex: value => value === "auto",
+        // The shorthand computes to one value per axis when they differ.
+        overflow: value => value.split(" ").every(part => part === "visible"),
+        transform: value => value === "none"
     };
 
     function isDefault(property, value) {
         return !!defaultChecks[property]?.(value);
     }
 
-    // Gap only affects flex and grid containers, so elsewhere its row is
-    // noise.
+    function isFlexContainer(display) {
+        return /\bflex\b/.test(display);
+    }
+
+    function isGridContainer(display) {
+        return /\bgrid\b/.test(display);
+    }
+
     function isGapContainer(display) {
-        return /\b(flex|grid)\b/.test(display);
+        return isFlexContainer(display) || isGridContainer(display);
+    }
+
+    // Rows for properties that only affect some elements, which elsewhere
+    // are noise. Each check gets a result of getStyles().
+    const relevanceChecks = {
+        gap: state => isGapContainer(state.display),
+        flexDirection: state => isFlexContainer(state.display),
+        justifyContent: state => isGapContainer(state.display),
+        alignItems: state => isGapContainer(state.display),
+        gridTemplateColumns: state => isGridContainer(state.display),
+        gridTemplateRows: state => isGridContainer(state.display),
+        // z-index applies to positioned elements and flex and grid items.
+        zIndex: state => state.position !== "static" || state.isLayoutItem
+    };
+
+    // A row is shown when its property is relevant in either state.
+    function isRelevant(property, normal, hover) {
+        const check = relevanceChecks[property];
+
+        return !check || check(normal) || check(hover);
     }
 
     function toCssName(property) {
@@ -115,6 +160,11 @@
         result.hasOutline =
             computed.outlineStyle !== "none" &&
             parseFloat(computed.outlineWidth) > 0;
+
+        const parent = el.parentElement;
+
+        result.isLayoutItem =
+            !!parent && isGapContainer(window.getComputedStyle(parent).display);
 
         return result;
     }
@@ -477,6 +527,7 @@
         borderColorProperties,
         isDefault,
         isGapContainer,
+        isRelevant,
         toCssName,
         declaration,
         boxLayers,
