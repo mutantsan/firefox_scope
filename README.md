@@ -1,3 +1,5 @@
+[![CI](https://github.com/mutantsan/firefox_scope/actions/workflows/ci.yml/badge.svg)](https://github.com/mutantsan/firefox_scope/actions/workflows/ci.yml)
+
 # Scope
 
 ![Scope's pinned tooltip showing computed styles for a highlighted heading](image.png)
