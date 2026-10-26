@@ -4,15 +4,16 @@
 
 ![Scope's pinned tooltip showing computed styles for a highlighted heading](image.png)
 
-A small Firefox extension for checking an element's CSS without opening DevTools.
+A small Firefox and Chrome extension for checking an element's CSS without opening DevTools.
 
 Scope only runs in a tab once you start it there: click the toolbar button or
-press **Ctrl+Alt+S**. It then stays ready in that tab until the page is
-reloaded or you leave it. To have it ready on every page without starting it,
-click the toolbar button and switch on **Always ready**. Firefox
-then asks for access to all websites. Switching it off removes that access.
-The shortcut can be changed in `about:addons` → ⚙ → **Manage Extension
-Shortcuts**.
+press **Ctrl+Alt+S** (**Alt+Shift+S** in Chrome). It then stays ready in
+that tab until the page is reloaded or you leave it. To have it ready on every
+page without starting it, click the toolbar button and switch on
+**Always ready**. The browser then asks for access to all websites. Switching
+it off removes that access. The shortcut can be changed in `about:addons` →
+⚙ → **Manage Extension Shortcuts** in Firefox, or at
+`chrome://extensions/shortcuts` in Chrome.
 
 Hover over an element and hold **Shift**. A tooltip shows the element's key
 computed styles, and a blue focus border marks the element being inspected.
@@ -58,7 +59,9 @@ started, for example when an editor reruns its preview, needs Scope to be
 started again, unless it is always ready.
 
 Local HTML files (`file://`) work too, once Scope is started there with the
-toolbar button or the shortcut. **Always ready** doesn't cover them.
+toolbar button or the shortcut. **Always ready** doesn't cover them. In
+Chrome, also switch on **Allow access to file URLs** in Scope's details at
+`chrome://extensions`.
 
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
 it.
@@ -119,13 +122,25 @@ straight away. Click a group's name to show or hide the whole group, or use
 
 ## Install for development
 
+### Firefox
+
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on…** and select `manifest.json`.
 
 Temporary add-ons are removed when Firefox restarts.
 
+### Chrome
+
+1. Build the Chrome version with `npm run build:chrome`. This writes it to
+   `dist/chrome`.
+2. Open `chrome://extensions` and switch on **Developer mode**.
+3. Click **Load unpacked** and select the `dist/chrome` folder.
+
+Run the build again after changing the code, then click the reload button on
+Scope's card.
+
 If nothing happens on a page, start Scope there with the toolbar button or
-**Ctrl+Alt+S** first.
+the shortcut first.
 
 ## Release a new version
 
@@ -148,6 +163,10 @@ If nothing happens on a page, start Scope there with the toolbar button or
    npx web-ext sign --channel=listed \
        --api-key=$AMO_JWT_ISSUER --api-secret=$AMO_JWT_SECRET
    ```
+4. For Chrome, run `npm run build:chrome`, which writes
+   `web-ext-artifacts/scope-chrome-<version>.zip`. Upload it in the
+   [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole)
+   → Scope → **Package** → **Upload new package**.
 
 ## Permissions
 

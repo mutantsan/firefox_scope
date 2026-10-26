@@ -7,6 +7,7 @@
     "test": "node --test",
     "lint": "web-ext lint",
     "build": "web-ext build --overwrite-dest",
+    "build:chrome": "node scripts/build-chrome.mjs",
     "start": "web-ext run"
   },
   "devDependencies": {

@@ -294,13 +294,25 @@
         sheetLoadedListener = listener;
     }
 
+    // Firefox gives content scripts the page's fetch as content.fetch, while
+    // Chrome's own fetch already runs as the page. Checked by type, since an
+    // element with id="content" can also show up as `content`.
+    function pageFetch(url, options) {
+        const page =
+            typeof content !== "undefined" && typeof content.fetch === "function"
+                ? content
+                : globalThis;
+
+        return page.fetch(url, options);
+    }
+
     async function loadSheetCopy(href) {
         sheetCopies.set(href, "loading");
 
         let copy = null;
 
         try {
-            const response = await content.fetch(href, {
+            const response = await pageFetch(href, {
                 mode: "cors",
                 credentials: "omit",
                 cache: "force-cache"
@@ -330,7 +342,7 @@
     function sheetCopy(sheet) {
         const { href, ownerNode } = sheet;
 
-        if (!href || !ownerNode || !/^https?:/.test(href) || typeof content === "undefined") {
+        if (!href || !ownerNode || !/^https?:/.test(href)) {
             return null;
         }
 

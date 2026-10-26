@@ -9,6 +9,7 @@
     // at the extension root because Firefox resolves relative ones against
     // the calling page, which is popup/ for the popup.
     const files = [
+        "/shared/browser.js",
         "/content/ui.js",
         "/content/tree.js",
         "/content/properties.js",

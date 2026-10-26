@@ -16,7 +16,8 @@
     ]);
 
     // openOrClosedShadowRoot is Firefox's way for extensions to see closed
-    // roots. Scope's own UI is one of them and isn't part of the page.
+    // roots, dom.openOrClosedShadowRoot() Chrome's. Scope's own UI is one
+    // of them and isn't part of the page.
     function shadowRootOf(el) {
         if (
             el === Scope.ui.host ||
@@ -25,7 +26,10 @@
             return null;
         }
 
-        return el.openOrClosedShadowRoot ?? el.shadowRoot ?? null;
+        return el.openOrClosedShadowRoot ??
+            browser.dom?.openOrClosedShadowRoot(el) ??
+            el.shadowRoot ??
+            null;
     }
 
     /*
