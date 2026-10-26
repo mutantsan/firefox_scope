@@ -294,6 +294,27 @@
      * Drawn as a separate overlay instead of styling the inspected element
      * itself, so it doesn't change the computed styles being reported.
      */
+    /*
+     * The box model is shaded with the same colors as the tooltip's diagram.
+     * Each region is drawn as an overlay's border, sized to match the
+     * element's own widths: the margin overlay surrounds the border box, the
+     * highlight's border covers the element's border, and an inner overlay's
+     * border covers the padding, with the content as its background.
+     */
+    const marginOverlay = document.createElement("div");
+
+    Object.assign(marginOverlay.style, {
+        position: "fixed",
+        zIndex: "2147483646",
+        display: "none",
+
+        boxSizing: "content-box",
+        borderStyle: "solid",
+        borderColor: "rgba(246, 178, 107, 0.4)",
+
+        pointerEvents: "none"
+    });
+
     const highlight = document.createElement("div");
 
     Object.assign(highlight.style, {
@@ -302,13 +323,35 @@
         display: "none",
 
         boxSizing: "border-box",
+        borderStyle: "solid",
+        borderColor: "rgba(255, 217, 102, 0.45)",
         outline: "2px solid #3b9eff",
-        background: "rgba(59, 158, 255, 0.12)",
 
         pointerEvents: "none"
     });
 
-    document.documentElement.appendChild(highlight);
+    const paddingOverlay = document.createElement("div");
+
+    Object.assign(paddingOverlay.style, {
+        position: "absolute",
+        inset: "0",
+
+        boxSizing: "border-box",
+        borderStyle: "solid",
+        borderColor: "rgba(147, 196, 125, 0.45)",
+        background: "rgba(59, 158, 255, 0.18)",
+        backgroundClip: "padding-box"
+    });
+
+    highlight.append(paddingOverlay);
+    document.documentElement.append(marginOverlay, highlight);
+
+    // Border widths can't be negative, so negative margins aren't shaded.
+    function sideWidths(computed, side) {
+        return boxSides
+            .map(s => Math.max(0, parseFloat(computed.getPropertyValue(side(s))) || 0) + "px")
+            .join(" ");
+    }
 
     function positionHighlight() {
         if (!inspectedElement) {
@@ -316,12 +359,30 @@
         }
 
         const rect = inspectedElement.getBoundingClientRect();
+        const computed = window.getComputedStyle(inspectedElement);
+
+        const [margin, border, padding] = boxLayers.map(
+            ({ side }) => sideWidths(computed, side)
+        );
+
+        const [marginTop, , , marginLeft] = margin.split(" ").map(parseFloat);
 
         Object.assign(highlight.style, {
             left: rect.left + "px",
             top: rect.top + "px",
             width: rect.width + "px",
-            height: rect.height + "px"
+            height: rect.height + "px",
+            borderWidth: border
+        });
+
+        paddingOverlay.style.borderWidth = padding;
+
+        Object.assign(marginOverlay.style, {
+            left: rect.left - marginLeft + "px",
+            top: rect.top - marginTop + "px",
+            width: rect.width + "px",
+            height: rect.height + "px",
+            borderWidth: margin
         });
     }
 
@@ -340,6 +401,7 @@
         inspectedElement = null;
         tooltip.style.display = "none";
         highlight.style.display = "none";
+        marginOverlay.style.display = "none";
     }
 
     // -------------------------------------------------------------------------
@@ -523,6 +585,165 @@
     }
 
     // -------------------------------------------------------------------------
+    // Box model diagram
+    // -------------------------------------------------------------------------
+
+    const boxLayers = [
+        // Solid fills rather than translucent tints, which would compound
+        // as the layers nest.
+        { name: "margin", tint: "#f6b26b", fill: "#3a2a1a", side: s => `margin-${s}` },
+        { name: "border", tint: "#ffd966", fill: "#38321a", side: s => `border-${s}-width` },
+        { name: "padding", tint: "#93c47d", fill: "#22301c", side: s => `padding-${s}` }
+    ];
+
+    const boxSides = ["top", "right", "bottom", "left"];
+
+    function round(n) {
+        return Math.round(n * 100) / 100;
+    }
+
+    // Zero sides are shown as a dash, like DevTools, so the non-zero ones
+    // stand out.
+    function boxValue(px) {
+        const node = document.createElement("span");
+        const value = round(px);
+
+        node.textContent = value === 0 ? "–" : String(value);
+
+        if (value !== 0) {
+            makeCopyable(node, value + "px");
+        } else {
+            node.style.color = "#777";
+        }
+
+        return node;
+    }
+
+    function boxLayer({ name: label, tint, fill }, sides, inner) {
+        const layer = document.createElement("div");
+
+        Object.assign(layer.style, {
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+
+            margin: "0",
+            padding: "0 6px",
+            minWidth: "0",
+
+            border: `1px dashed ${tint}`,
+            borderRadius: "3px",
+            background: fill,
+
+            lineHeight: "1.5",
+            whiteSpace: "nowrap"
+        });
+
+        const name = document.createElement("span");
+
+        name.textContent = label;
+
+        Object.assign(name.style, {
+            justifySelf: "start",
+            color: tint,
+            fontSize: "10px"
+        });
+
+        // Label on the left, value centered: equal 1fr columns either side
+        // keep the value centered without the two overlapping.
+        const top = document.createElement("div");
+
+        Object.assign(top.style, {
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            gap: "6px",
+            alignSelf: "stretch"
+        });
+
+        top.append(name, boxValue(sides[0]), document.createElement("span"));
+
+        const middle = document.createElement("div");
+
+        Object.assign(middle.style, {
+            display: "flex",
+            alignItems: "center",
+            gap: "6px"
+        });
+
+        middle.append(boxValue(sides[3]), inner, boxValue(sides[1]));
+        layer.append(top, middle, boxValue(sides[2]));
+
+        return layer;
+    }
+
+    /*
+     * Margin, border and padding nested like DevTools' box model view. Uses
+     * the live (hovered) values, matching the focus border on the page.
+     * The content size comes from the rendered box rather than the computed
+     * width/height, which can be `auto` or include padding (border-box).
+     */
+    function renderBoxModel(el) {
+        const computed = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+
+        const layers = boxLayers.map(({ side }) =>
+            boxSides.map(s => parseFloat(computed.getPropertyValue(side(s))) || 0)
+        );
+
+        const [, border, padding] = layers;
+
+        const contentWidth = Math.max(
+            0,
+            rect.width - border[1] - border[3] - padding[1] - padding[3]
+        );
+
+        const contentHeight = Math.max(
+            0,
+            rect.height - border[0] - border[2] - padding[0] - padding[2]
+        );
+
+        const contentSize = `${round(contentWidth)} × ${round(contentHeight)}`;
+        const content = document.createElement("div");
+
+        content.textContent = contentSize;
+        makeCopyable(content, contentSize);
+
+        Object.assign(content.style, {
+            margin: "4px 0",
+            padding: "2px 8px",
+
+            border: "1px solid #6fa8dc",
+            borderRadius: "3px",
+            background: "#1c2c3c",
+
+            whiteSpace: "nowrap"
+        });
+
+        let box = content;
+
+        for (let i = boxLayers.length - 1; i >= 0; i--) {
+            box = boxLayer(boxLayers[i], layers[i], box);
+        }
+
+        const diagram = document.createElement("div");
+
+        Object.assign(diagram.style, {
+            display: "flex",
+            justifyContent: "center",
+
+            marginTop: "8px",
+            paddingTop: "8px",
+            borderTop: "1px solid #333",
+
+            fontSize: "11px"
+        });
+
+        diagram.append(box);
+
+        return diagram;
+    }
+
+    // -------------------------------------------------------------------------
     // Inspection
     // -------------------------------------------------------------------------
 
@@ -606,7 +827,7 @@
 
         currentRows = rows;
 
-        tooltip.replaceChildren(pinBar, pinTip, ...lines);
+        tooltip.replaceChildren(pinBar, pinTip, ...lines, renderBoxModel(el));
 
         tooltip.style.display = "block";
 
@@ -614,6 +835,7 @@
 
         inspectedElement = el;
         highlight.style.display = "block";
+        marginOverlay.style.display = "block";
 
         positionHighlight();
     }

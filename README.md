@@ -37,6 +37,9 @@ without reloading the page.
 - Typography: `fontFamily`, `fontSize`, `fontWeight`, `lineHeight`
 - Box: `margin`, `padding`, `width`, `height`, `border`, `borderRadius`
 - Layout: `display`, `position`, `opacity`
+- A box model diagram with each side's margin, border and padding, and the
+  content size. The same regions are shaded on the page: margin in orange,
+  border in yellow, padding in green and content in blue
 
 When the hovered state differs from the normal state, both are shown:
 `normal → hover`. The normal state is approximated by measuring an off-screen
