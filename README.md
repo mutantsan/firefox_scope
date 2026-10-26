@@ -6,6 +6,14 @@
 
 A small Firefox extension for checking an element's CSS without opening DevTools.
 
+Scope only runs in a tab once you start it there: click the toolbar button or
+press **Ctrl+Alt+S**. It then stays ready in that tab until the page is
+reloaded or you leave it. To have it ready on every page without starting it,
+click the toolbar button and check **Always ready on every site**. Firefox
+then asks for access to all websites. Unchecking it removes that access.
+The shortcut can be changed in `about:addons` → ⚙ → **Manage Extension
+Shortcuts**.
+
 Hover over an element and hold **Shift**. A tooltip shows the element's key
 computed styles, and a blue focus border marks the element being inspected.
 Keep holding Shift and move the pointer to inspect other elements. Release
@@ -77,8 +85,8 @@ To choose which rows the tooltip shows, click the toolbar button and open
 
 Temporary add-ons are removed when Firefox restarts.
 
-If nothing happens on a page, check the extension's site access under
-`about:addons` → Scope → Permissions.
+If nothing happens on a page, start Scope there with the toolbar button or
+**Ctrl+Alt+S** first.
 
 ## Release a new version
 
@@ -104,12 +112,15 @@ If nothing happens on a page, check the extension's site access under
 
 ## Permissions
 
-- **Content script on all `http://` and `https://` pages**: reads computed
-  styles of the element under the cursor.
+- **`activeTab`** and **`scripting`**: start Scope in the current tab when
+  you click the toolbar button or press the shortcut, so it can read the
+  computed styles of the element under the cursor. The popup also reads the
+  tab's hostname for **Disable on this site**.
+- **Access to all `http://` and `https://` sites**, optional: only asked
+  for when you check **Always ready on every site**, to start Scope on every
+  page by itself.
 - **`storage`**: saves your settings locally: the hostnames where it's
   disabled, and which rows the tooltip shows.
-- **`activeTab`**: lets the toolbar popup read the current tab's hostname
-  when you open it.
 
 It makes no network requests and stores nothing besides those settings.
 

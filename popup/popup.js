@@ -84,6 +84,37 @@
     document.getElementById("hide-all")
         .addEventListener("click", () => setAllShown(false));
 
+    /*
+     * Off by default, so Scope needs no access to sites until it's started.
+     * The background script registers or removes the content scripts when
+     * the permission changes.
+     */
+    const { injection } = Scope;
+    const alwaysReadyCheckbox = document.getElementById("always-ready");
+
+    alwaysReadyCheckbox.checked = await injection.hasAllSites();
+
+    alwaysReadyCheckbox.addEventListener("change", async () => {
+        const permissions = { origins: injection.origins };
+
+        // Requested straight from the click, which Firefox requires.
+        if (alwaysReadyCheckbox.checked) {
+            alwaysReadyCheckbox.checked =
+                await browser.permissions.request(permissions);
+        } else {
+            await browser.permissions.remove(permissions);
+        }
+    });
+
+    // Firefox for Android has no keyboard shortcuts, and the user may have
+    // removed this one.
+    const commands = (await browser.commands?.getAll()) ?? [];
+    const shortcut = commands.find(c => c.name === "start")?.shortcut;
+
+    document.getElementById("start-hint").textContent = shortcut
+        ? `Otherwise Scope starts when you open this panel or press ${shortcut}.`
+        : "Otherwise Scope starts when you open this panel.";
+
     // activeTab exposes the tab's URL while the popup is open.
     const [tab] = await browser.tabs.query({
         active: true,
@@ -109,6 +140,10 @@
     }
 
     siteLabel.textContent = hostname;
+
+    // Opening the popup grants activeTab, which lets Scope start here.
+    injection.start(tab.id)
+        .catch(error => console.error("Scope:", error));
 
     const { disabledSites = [] } =
         await browser.storage.local.get("disabledSites");

@@ -41,11 +41,15 @@
             opacity: 0.4;
         }
 
-        #site {
+        #site,
+        #start-hint {
             margin-top: 4px;
             color: var(--muted);
-            font-family: monospace;
             word-break: break-all;
+        }
+
+        #site {
+            font-family: monospace;
         }
 
         summary {
@@ -127,7 +131,16 @@
     </label>
     <div id="site"></div>
 
+    <hr>
+
+    <label>
+        <input type="checkbox" id="always-ready">
+        Always ready on every site
+    </label>
+    <div id="start-hint"></div>
+
     <script src="../content/properties.js"></script>
+    <script src="../background/injection.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

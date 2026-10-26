@@ -19,6 +19,7 @@
         tooltip.hide();
 
         inspectedElement = null;
+        observeInspected(null);
         overlays.hide();
         measure.hide();
     }
@@ -168,8 +169,26 @@
             mouseY
         );
 
+        if (el !== inspectedElement) {
+            observeInspected(el);
+        }
+
         inspectedElement = el;
         overlays.show(el);
+    }
+
+    // Follows the inspected element when it changes size without a scroll
+    // or resize, e.g. an accordion opening under a pinned tooltip. The
+    // callback runs after layout and before paint, so it positions straight
+    // away. followInspected is hoisted from the scroll section below.
+    const resizeObserver = new ResizeObserver(() => followInspected());
+
+    function observeInspected(el) {
+        resizeObserver.disconnect();
+
+        if (el) {
+            resizeObserver.observe(el);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -442,13 +461,31 @@
 
     // Keep the focus border on the element while the page scrolls or
     // resizes. Capture phase catches scrolling inside nested containers.
-    const followInspected = () => {
+    // Positioning reads computed styles and layout, so it runs at most once
+    // per frame, however many scroll events arrive.
+    function followInspected() {
         overlays.position(inspectedElement);
         measure.position();
-    };
+    }
 
-    document.addEventListener("scroll", followInspected, true);
-    window.addEventListener("resize", followInspected);
+    let followFrame = null;
+
+    function scheduleFollow() {
+        if (followFrame) {
+            return;
+        }
+
+        followFrame = requestAnimationFrame(() => {
+            followFrame = null;
+            followInspected();
+        });
+    }
+
+    document.addEventListener("scroll", scheduleFollow, {
+        capture: true,
+        passive: true
+    });
+    window.addEventListener("resize", scheduleFollow);
 
     // Prevent the tooltip from getting stuck if the window loses focus
     // while Shift is held. A pinned tooltip is meant to stay, so keep it.
@@ -461,6 +498,30 @@
             hideInspector();
         }
     });
+
+    // Confirms that the keyboard shortcut started Scope, unless the tooltip
+    // is already in use.
+    let readyTimer = null;
+
+    function announceReady() {
+        if (tooltip.isVisible()) {
+            return;
+        }
+
+        tooltip.showMessage(
+            "Scope is ready. Hold Shift over an element to inspect it.",
+            0,
+            0
+        );
+
+        clearTimeout(readyTimer);
+
+        readyTimer = setTimeout(() => {
+            if (!inspectedElement) {
+                tooltip.hide();
+            }
+        }, 2500);
+    }
 
     // -------------------------------------------------------------------------
     // Settings
@@ -520,4 +581,7 @@
             applyHiddenProperties(changes.hiddenProperties.newValue);
         }
     });
+
+    // Its presence also tells Scope.injection that the page runs Scope.
+    Scope.inspector = { announceReady };
 })(globalThis.Scope ??= {});
