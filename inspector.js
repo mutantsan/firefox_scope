@@ -18,6 +18,7 @@
         "width",
         "height",
         "display",
+        "gap",
         "position",
         "border",
         "borderRadius",
@@ -31,11 +32,38 @@
         "borderLeftColor"
     ];
 
-    // Rows computed by Scope rather than read from CSS, so they're left out
-    // of "copy all" and aren't copied as declarations.
-    const derivedRows = new Set(["contrast"]);
+    // Rows hidden when they hold the default in both states, unless the
+    // "Show default values" setting is on. The box model diagram still
+    // shows every side of margin, border and padding.
+    function isZero(value) {
+        const numbers = value.match(/-?\d*\.?\d+/g);
+
+        return !!numbers && numbers.every(n => parseFloat(n) === 0);
+    }
+
+    const defaultChecks = {
+        margin: isZero,
+        padding: isZero,
+        borderRadius: isZero,
+        // The border shorthand ends with a color, so only its width counts.
+        border: value => /^0px\b/.test(value),
+        position: value => value === "static",
+        opacity: value => parseFloat(value) === 1,
+        gap: value => value === "normal"
+    };
+
+    function isDefault(property, value) {
+        return !!defaultChecks[property]?.(value);
+    }
+
+    // Gap only affects flex and grid containers, so elsewhere its row is
+    // noise.
+    function isGapContainer(display) {
+        return /\b(flex|grid)\b/.test(display);
+    }
 
     let enabled = true;
+    let showDefaultValues = true;
     let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
@@ -184,7 +212,6 @@
 
     copyAllButton.addEventListener("click", () => {
         const css = currentRows
-            .filter(([property]) => !derivedRows.has(property))
             .map(([property, normalValue]) => declaration(property, normalValue))
             .join("\n");
 
@@ -656,6 +683,12 @@
 
         result.contrast = contrastSummary(el, computed);
 
+        // outline-color computes to a color (currentcolor by default) even
+        // when no outline is drawn, so its row is only shown when one is.
+        result.hasOutline =
+            computed.outlineStyle !== "none" &&
+            parseFloat(computed.outlineWidth) > 0;
+
         return result;
     }
 
@@ -936,6 +969,19 @@
     // Attributes
     // -------------------------------------------------------------------------
 
+    // A tooltip section below the CSS rows, set off by a divider line.
+    function tooltipSection() {
+        const section = document.createElement("div");
+
+        Object.assign(section.style, {
+            marginTop: "8px",
+            paddingTop: "8px",
+            borderTop: "1px solid #333"
+        });
+
+        return section;
+    }
+
     // Shown like Markdown inline code, so each name stands out from its
     // neighbours. Clicking one copies just that name.
     function codeChip(value) {
@@ -967,13 +1013,7 @@
             return null;
         }
 
-        const section = document.createElement("div");
-
-        Object.assign(section.style, {
-            marginTop: "8px",
-            paddingTop: "8px",
-            borderTop: "1px solid #333"
-        });
+        const section = tooltipSection();
 
         const nameWidth = Math.max(...attributes.map(([name]) => name.length));
 
@@ -1012,6 +1052,28 @@
     // Inspection
     // -------------------------------------------------------------------------
 
+    // A label and its value, followed by the hovered value when it differs.
+    function renderRow(label, copyValue, normalValue, hoverValue, render) {
+        const line = document.createElement("div");
+        const name = document.createElement("span");
+
+        name.textContent = label;
+        makeCopyable(name, copyValue);
+
+        line.append(name, "  ", render(normalValue));
+
+        if (normalValue !== hoverValue) {
+            const arrow = document.createElement("span");
+
+            arrow.style.color = "#888";
+            arrow.textContent = "→";
+
+            line.append("  ", arrow, "  ", render(hoverValue));
+        }
+
+        return line;
+    }
+
     function inspectElement(el) {
         const normal = getNormalStyles(el);
         const hover = getStyles(el);
@@ -1028,7 +1090,31 @@
 
         const rows = [];
 
+        const showGap =
+            isGapContainer(normal.display) ||
+            isGapContainer(hover.display);
+
         properties.forEach(property => {
+            if (property === "gap" && !showGap) {
+                return;
+            }
+
+            if (
+                property === "outlineColor" &&
+                !normal.hasOutline &&
+                !hover.hasOutline
+            ) {
+                return;
+            }
+
+            if (
+                !showDefaultValues &&
+                isDefault(property, normal[property]) &&
+                isDefault(property, hover[property])
+            ) {
+                return;
+            }
+
             if (
                 collapseBorders &&
                 borderColorProperties.includes(property)
@@ -1051,59 +1137,41 @@
                 normal[property],
                 hover[property]
             ]);
-
-            if (property === "backgroundColor") {
-                rows.push(["contrast", normal.contrast, hover.contrast]);
-            }
         });
 
+        // Shown as CSS names, matching what a click copies.
         const propertyWidth = Math.max(
-            ...rows.map(row => row[0].length)
+            ...rows.map(row => toCssName(row[0]).length)
         );
 
-        const lines = rows.map(
-            ([property, normalValue, hoverValue]) => {
-                const line = document.createElement("div");
-                const name = document.createElement("span");
+        const lines = rows.map(([property, normalValue, hoverValue]) => {
+            const cssName = toCssName(property);
 
-                name.textContent = property;
-
-                const render = derivedRows.has(property)
-                    ? renderMarks
-                    : renderValue;
-
-                makeCopyable(
-                    name,
-                    derivedRows.has(property)
-                        ? `${property}: ${normalValue}`
-                        : declaration(property, normalValue)
-                );
-
-                line.append(
-                    name,
-                    " ".repeat(propertyWidth - property.length + 2),
-                    render(normalValue)
-                );
-
-                if (normalValue !== hoverValue) {
-                    const arrow = document.createElement("span");
-
-                    arrow.style.color = "#888";
-                    arrow.textContent = "→";
-
-                    line.append(
-                        "  ",
-                        arrow,
-                        "  ",
-                        render(hoverValue)
-                    );
-                }
-
-                return line;
-            }
-        );
+            return renderRow(
+                cssName.padEnd(propertyWidth),
+                declaration(property, normalValue),
+                normalValue,
+                hoverValue,
+                renderValue
+            );
+        });
 
         currentRows = rows;
+
+        // Computed by Scope rather than read from CSS, so it gets its own
+        // section and is left out of "copy all".
+        const contrast = tooltipSection();
+        const contrastLabel = "WCAG contrast";
+
+        contrast.append(
+            renderRow(
+                contrastLabel,
+                `${contrastLabel}: ${normal.contrast}`,
+                normal.contrast,
+                hover.contrast,
+                renderMarks
+            )
+        );
 
         const attributes = renderAttributes(el);
 
@@ -1111,6 +1179,7 @@
             pinBar,
             pinTip,
             ...lines,
+            contrast,
             ...(attributes ? [attributes] : []),
             renderBoxModel(el)
         );
@@ -1407,13 +1476,34 @@
         }
     }
 
+    // Re-renders an open tooltip, which is usually pinned while the popup
+    // is used to change the setting.
+    function applyShowDefaultValues(value = true) {
+        showDefaultValues = value;
+
+        if (inspectedElement) {
+            inspectElement(inspectedElement);
+        }
+    }
+
     browser.storage.local
-        .get("disabledSites")
-        .then(({ disabledSites }) => applyDisabledSites(disabledSites));
+        .get(["disabledSites", "showDefaultValues"])
+        .then(({ disabledSites, showDefaultValues }) => {
+            applyDisabledSites(disabledSites);
+            applyShowDefaultValues(showDefaultValues);
+        });
 
     browser.storage.onChanged.addListener((changes, area) => {
-        if (area === "local" && changes.disabledSites) {
+        if (area !== "local") {
+            return;
+        }
+
+        if (changes.disabledSites) {
             applyDisabledSites(changes.disabledSites.newValue);
+        }
+
+        if (changes.showDefaultValues) {
+            applyShowDefaultValues(changes.showDefaultValues.newValue);
         }
     });
 

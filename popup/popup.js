@@ -3,6 +3,19 @@
 
     const checkbox = document.getElementById("disabled");
     const siteLabel = document.getElementById("site");
+    const showDefaultsCheckbox = document.getElementById("show-defaults");
+
+    // Global, so it's set up before the site check below can bail out.
+    const { showDefaultValues = true } =
+        await browser.storage.local.get("showDefaultValues");
+
+    showDefaultsCheckbox.checked = showDefaultValues;
+
+    showDefaultsCheckbox.addEventListener("change", () => {
+        browser.storage.local.set({
+            showDefaultValues: showDefaultsCheckbox.checked
+        });
+    });
 
     // activeTab exposes the tab's URL while the popup is open.
     const [tab] = await browser.tabs.query({

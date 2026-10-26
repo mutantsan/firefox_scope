@@ -34,6 +34,13 @@
             cursor: pointer;
         }
 
+        hr {
+            margin: 10px 0;
+            border: none;
+            border-top: 1px solid var(--muted);
+            opacity: 0.4;
+        }
+
         #site {
             margin-top: 4px;
             color: var(--muted);
@@ -41,7 +48,7 @@
             word-break: break-all;
         }
 
-        .unavailable label {
+        .unavailable #site-setting {
             opacity: 0.5;
             cursor: default;
         }
@@ -49,6 +56,13 @@
 </head>
 <body>
     <label>
+        <input type="checkbox" id="show-defaults">
+        Show default values
+    </label>
+
+    <hr>
+
+    <label id="site-setting">
         <input type="checkbox" id="disabled" disabled>
         Disable on this site
     </label>
