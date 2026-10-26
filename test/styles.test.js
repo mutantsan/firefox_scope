@@ -1,6 +1,7 @@
 // styles.js reads Scope.colors and Scope.fonts when it loads. Fonts need a
 // canvas, and none of it is used by the functions tested here.
 globalThis.Scope = { fonts: {} };
+require("../content/tree.js");
 require("../content/colors.js");
 require("../content/styles.js");
 

@@ -161,7 +161,7 @@
             computed.outlineStyle !== "none" &&
             parseFloat(computed.outlineWidth) > 0;
 
-        const parent = el.parentElement;
+        const parent = Scope.tree.renderedParent(el);
 
         result.isLayoutItem =
             !!parent && isGapContainer(window.getComputedStyle(parent).display);
@@ -268,8 +268,14 @@
 
     // Whether the selector matches `el` differently with :hover forced on
     // and forced off. A selector matches() can't take, like one with a
-    // pseudo-element, counts as depending on it.
+    // pseudo-element, counts as depending on it, and so does one on a
+    // shadow root's host, e.g. `:host(:hover)`, since the host is outside
+    // the tree the rule is matched in.
     function dependsOnHover(el, selector) {
+        if (selector.includes(":host")) {
+            return true;
+        }
+
         const hovered = matchesSafely(el, selector.replace(/:hover\b/g, ":is(*)"));
         const normal = matchesSafely(el, selector.replace(/:hover\b/g, ":not(*)"));
 

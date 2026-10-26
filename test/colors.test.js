@@ -1,5 +1,6 @@
 // The content scripts add to a global `Scope`, as they do in the browser.
 globalThis.Scope = {};
+require("../content/tree.js");
 require("../content/colors.js");
 
 const test = require("node:test");

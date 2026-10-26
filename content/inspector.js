@@ -2,7 +2,7 @@
 (function (Scope) {
     "use strict";
 
-    const { ui, properties, styles, render, tooltip, overlays, measure } = Scope;
+    const { ui, tree, properties, styles, render, tooltip, overlays, measure } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
@@ -220,18 +220,21 @@
     }
 
     // Moves over the tooltip arrive retargeted to the UI host, which isn't
-    // part of the page.
+    // part of the page. composedPath() reaches into open shadow roots, and
+    // deepestAt() into closed ones.
     document.addEventListener(
         "mousemove",
         event => {
             mouseX = event.clientX;
             mouseY = event.clientY;
 
+            const target = event.composedPath()[0];
+
             if (
-                event.target instanceof Element &&
-                event.target !== ui.host
+                target instanceof Element &&
+                target !== ui.host
             ) {
-                hoveredElement = event.target;
+                hoveredElement = tree.deepestAt(target, mouseX, mouseY);
             }
 
             if (altPressed) {
@@ -251,27 +254,28 @@
     // Keyboard: arrows walk the DOM while pinned
     // -------------------------------------------------------------------------
 
-    // Elements without a box, e.g. <script> or display: none, have nothing
-    // to show, and the UI host isn't part of the page.
-    function hasBox(el) {
-        return el !== ui.host && el.getClientRects().length > 0;
-    }
+    // The sibling `offset` places away among the parent's rendered children.
+    function sibling(el, offset) {
+        const parent = tree.renderedParent(el);
 
-    function nextWithBox(el, step) {
-        while (el && !hasBox(el)) {
-            el = step(el);
+        if (!parent) {
+            return null;
         }
 
-        return el;
+        const siblings = tree.renderedChildren(parent);
+        const index = siblings.indexOf(el);
+
+        return index < 0 ? null : siblings[index + offset] ?? null;
     }
 
-    // ↑ parent, ↓ first child, ← and → siblings. Each returns null at the
-    // end of the line.
+    // ↑ parent, ↓ first child, ← and → siblings, as rendered: into shadow
+    // roots and through slots, skipping elements without a box. Each
+    // returns null at the end of the line.
     const walks = {
-        ArrowUp: el => nextWithBox(el.parentElement, e => e.parentElement),
-        ArrowDown: el => nextWithBox(el.firstElementChild, e => e.nextElementSibling),
-        ArrowLeft: el => nextWithBox(el.previousElementSibling, e => e.previousElementSibling),
-        ArrowRight: el => nextWithBox(el.nextElementSibling, e => e.nextElementSibling)
+        ArrowUp: el => tree.renderedParent(el),
+        ArrowDown: el => tree.renderedChildren(el)[0] ?? null,
+        ArrowLeft: el => sibling(el, -1),
+        ArrowRight: el => sibling(el, 1)
     };
 
     // Scrolls an element that is entirely out of view back into it, so the
@@ -302,7 +306,7 @@
             event.ctrlKey ||
             event.metaKey ||
             event.shiftKey ||
-            isEditable(event.composedPath()[0]) ||
+            isEditable(tree.focusedElement()) ||
             !inspectedElement?.isConnected
         ) {
             return;
@@ -418,8 +422,8 @@
             }
 
             // Shift is part of normal typing, so don't inspect while a text
-            // field has focus. composedPath() reaches into shadow DOM.
-            if (isEditable(event.composedPath()[0])) {
+            // field has focus.
+            if (isEditable(tree.focusedElement())) {
                 if (event.key !== "Shift") {
                     cancelEditableHint();
                 } else if (!editableHintTimer && !event.repeat) {

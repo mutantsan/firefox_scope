@@ -10,6 +10,7 @@
     // the calling page, which is popup/ for the popup.
     const files = [
         "/content/ui.js",
+        "/content/tree.js",
         "/content/properties.js",
         "/content/colors.js",
         "/content/fonts.js",

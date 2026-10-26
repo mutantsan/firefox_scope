@@ -295,10 +295,8 @@
         return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
     }
 
-    function parentOf(el) {
-        // Step out of shadow roots to the host element.
-        return el.parentElement || el.getRootNode().host || null;
-    }
+    // Through shadow roots and slots, as the page is painted.
+    const parentOf = Scope.tree.flatParent;
 
     /*
      * A pixel is a known color plus the share of it that comes from

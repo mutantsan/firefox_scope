@@ -39,6 +39,12 @@ at, use the arrow keys: **↑** moves to the parent, **↓** to the first child,
 and **←** and **→** to the previous and next sibling. Elements that aren't
 displayed are skipped. Click a parent in the path to jump straight to it.
 
+Elements inside web components are inspected like any other, including ones
+in closed shadow roots. The path and the arrow keys follow the page as it is
+displayed: **↓** on a component goes into its shadow root, and **↑** from
+content placed in a slot goes to the slot's parent. A `»` in the path marks
+where it crosses into or out of a shadow root.
+
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
 it.
 

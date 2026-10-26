@@ -6,6 +6,7 @@
 (function (Scope) {
     "use strict";
 
+    const { renderedParent } = Scope.tree;
     const { findColor } = Scope.colors;
     const { boxLayers, boxSides } = Scope.styles;
     const { makeCopyable } = Scope.tooltip;
@@ -170,6 +171,10 @@
             color: #eee;
             cursor: default;
         }
+
+        .boundary {
+            cursor: help;
+        }
     `);
 
     function element(tag, className) {
@@ -333,18 +338,34 @@
         return className ? `${el.localName}.${className}` : el.localName;
     }
 
+    // "»" between two elements in different trees, e.g. a host and the
+    // top of its shadow root, or a slot and an element it shows.
+    function separator(from, to) {
+        if (from.getRootNode() === to.getRootNode()) {
+            return " > ";
+        }
+
+        const boundary = element("span", "boundary");
+
+        boundary.textContent = " » ";
+        boundary.title = "Shadow DOM boundary";
+
+        return boundary;
+    }
+
     /*
-     * Where `el` sits in the page, e.g. `main > section.hero > h1`.
-     * Clicking an ancestor calls `select` with it.
+     * Where `el` sits in the page, e.g. `main > section.hero > h1`. It
+     * follows the rendered tree, like the ↑ key, so it passes from a
+     * shadow root to its host. Clicking an ancestor calls `select` with it.
      */
     function path(el, select) {
         const node = element("div", "path");
         const ancestors = [];
 
         for (
-            let parent = el.parentElement;
+            let parent = renderedParent(el);
             parent && ancestors.length <= pathDepth;
-            parent = parent.parentElement
+            parent = renderedParent(parent)
         ) {
             ancestors.unshift(parent);
         }
@@ -354,14 +375,14 @@
             node.append("… > ");
         }
 
-        for (const ancestor of ancestors) {
+        ancestors.forEach((ancestor, i) => {
             const crumb = element("span", "crumb");
 
             crumb.textContent = crumbLabel(ancestor);
             crumb.addEventListener("click", () => select(ancestor));
 
-            node.append(crumb, " > ");
-        }
+            node.append(crumb, separator(ancestor, ancestors[i + 1] ?? el));
+        });
 
         const current = element("span", "crumb current");
 

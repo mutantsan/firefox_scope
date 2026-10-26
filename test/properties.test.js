@@ -1,4 +1,5 @@
 globalThis.Scope = { fonts: {} };
+require("../content/tree.js");
 require("../content/colors.js");
 require("../content/styles.js");
 require("../content/properties.js");
