@@ -590,10 +590,11 @@
 
     const boxLayers = [
         // Solid fills rather than translucent tints, which would compound
-        // as the layers nest.
-        { name: "margin", tint: "#f6b26b", fill: "#3a2a1a", side: s => `margin-${s}` },
-        { name: "border", tint: "#ffd966", fill: "#38321a", side: s => `border-${s}-width` },
-        { name: "padding", tint: "#93c47d", fill: "#22301c", side: s => `padding-${s}` }
+        // as the layers nest. The border is a solid line, like DevTools, so
+        // it reads as the element's edge rather than another spacing area.
+        { name: "margin", tint: "#f6b26b", fill: "#3a2a1a", line: "1px dashed", side: s => `margin-${s}` },
+        { name: "border", tint: "#ffd966", fill: "#38321a", line: "2px solid", side: s => `border-${s}-width` },
+        { name: "padding", tint: "#93c47d", fill: "#22301c", line: "1px dashed", side: s => `padding-${s}` }
     ];
 
     const boxSides = ["top", "right", "bottom", "left"];
@@ -619,7 +620,7 @@
         return node;
     }
 
-    function boxLayer({ name: label, tint, fill }, sides, inner) {
+    function boxLayer({ name: label, tint, fill, line }, sides, inner) {
         const layer = document.createElement("div");
 
         Object.assign(layer.style, {
@@ -631,7 +632,7 @@
             padding: "0 6px",
             minWidth: "0",
 
-            border: `1px dashed ${tint}`,
+            border: `${line} ${tint}`,
             borderRadius: "3px",
             background: fill,
 
