@@ -17,6 +17,73 @@
         });
     });
 
+    // One checkbox per tooltip row, unchecked when the row is hidden.
+    const { propertyGroups, propertyLabel } = Scope.properties;
+    const propertiesList = document.getElementById("properties");
+
+    const { hiddenProperties = [] } =
+        await browser.storage.local.get("hiddenProperties");
+
+    const inputs = new Map();
+
+    for (const { title, keys } of propertyGroups) {
+        const group = document.createElement("fieldset");
+        const legend = document.createElement("legend");
+
+        legend.textContent = title;
+        group.append(legend);
+
+        for (const key of keys) {
+            const label = document.createElement("label");
+            const input = document.createElement("input");
+
+            input.type = "checkbox";
+            input.checked = !hiddenProperties.includes(key);
+
+            input.addEventListener("change", async () => {
+                // Re-read so a change made in another window isn't
+                // overwritten.
+                const { hiddenProperties = [] } =
+                    await browser.storage.local.get("hiddenProperties");
+
+                const hidden = new Set(hiddenProperties);
+
+                if (input.checked) {
+                    hidden.delete(key);
+                } else {
+                    hidden.add(key);
+                }
+
+                await browser.storage.local.set({
+                    hiddenProperties: [...hidden]
+                });
+            });
+
+            inputs.set(key, input);
+            label.append(input, propertyLabel(key));
+            group.append(label);
+        }
+
+        propertiesList.append(group);
+    }
+
+    // One write for the whole list, so a pinned tooltip redraws once.
+    function setAllShown(shown) {
+        for (const input of inputs.values()) {
+            input.checked = shown;
+        }
+
+        browser.storage.local.set({
+            hiddenProperties: shown ? [] : [...inputs.keys()]
+        });
+    }
+
+    document.getElementById("show-all")
+        .addEventListener("click", () => setAllShown(true));
+
+    document.getElementById("hide-all")
+        .addEventListener("click", () => setAllShown(false));
+
     // activeTab exposes the tab's URL while the popup is open.
     const [tab] = await browser.tabs.query({
         active: true,

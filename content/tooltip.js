@@ -296,6 +296,18 @@
             Math.max(0, y) + "px";
     }
 
+    // Keeps the tooltip where it is, moving it only as far as needed to
+    // stay in the viewport when its content grew.
+    function keepInView() {
+        const rect = tooltip.getBoundingClientRect();
+
+        const x = Math.min(rect.left, window.innerWidth - rect.width);
+        const y = Math.min(rect.top, window.innerHeight - rect.height);
+
+        tooltip.style.left = Math.max(0, x) + "px";
+        tooltip.style.top = Math.max(0, y) + "px";
+    }
+
     // -------------------------------------------------------------------------
     // Content
     // -------------------------------------------------------------------------
@@ -306,14 +318,21 @@
         tooltip.classList.toggle("faded", value);
     }
 
-    // Shows `nodes` below the pin bar, next to the pointer.
+    // Shows `nodes` below the pin bar, next to the pointer. A pinned
+    // tooltip is being redrawn, e.g. after a setting changed in the popup,
+    // so it stays put rather than jumping to where the pointer left the
+    // page.
     function show(nodes, allText, mouseX, mouseY) {
         copyAllText = allText;
 
         tooltip.replaceChildren(pinBar, pinTip, ...nodes);
         tooltip.style.display = "block";
 
-        position(mouseX, mouseY);
+        if (pinned) {
+            keepInView();
+        } else {
+            position(mouseX, mouseY);
+        }
     }
 
     // A plain message in place of the styles, e.g. a hint.

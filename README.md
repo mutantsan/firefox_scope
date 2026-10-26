@@ -65,6 +65,11 @@ without reloading the page.
 When the hovered state differs from the normal state, both are shown:
 `normal → hover`.
 
+To choose which rows the tooltip shows, click the toolbar button and open
+**Shown properties**. Unchecked rows are hidden everywhere, including from
+"copy all", and an open tooltip updates straight away. **Show all** and
+**none** check or uncheck every row at once.
+
 ## Install for development
 
 1. Open `about:debugging#/runtime/this-firefox`.
@@ -101,11 +106,12 @@ If nothing happens on a page, check the extension's site access under
 
 - **Content script on all `http://` and `https://` pages**: reads computed
   styles of the element under the cursor.
-- **`storage`**: saves the list of hostnames where it's disabled, locally.
+- **`storage`**: saves your settings locally: the hostnames where it's
+  disabled, and which rows the tooltip shows.
 - **`activeTab`**: lets the toolbar popup read the current tab's hostname
   when you open it.
 
-It makes no network requests and stores nothing besides that list.
+It makes no network requests and stores nothing besides those settings.
 
 ## License
 

@@ -2,10 +2,11 @@
 (function (Scope) {
     "use strict";
 
-    const { ui, styles, render, tooltip, overlays, measure } = Scope;
+    const { ui, properties, styles, render, tooltip, overlays, measure } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
+    let hiddenProperties = new Set();
     let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
@@ -48,6 +49,21 @@
             styles.isGapContainer(hover.display);
 
         styles.properties.forEach(property => {
+            const key = styles.borderColorProperties.includes(property)
+                ? "borderColor"
+                : property;
+
+            if (hiddenProperties.has(key)) {
+                return;
+            }
+
+            // A shorthand computes to "" when it can't be written as one
+            // value, e.g. border when the sides differ. The box model
+            // diagram and the color rows still show each side.
+            if (!normal[property] && !hover[property]) {
+                return;
+            }
+
             if (property === "gap" && !showGap) {
                 return;
             }
@@ -118,9 +134,11 @@
         const derived = render.section();
 
         const derivedRows = [
-            ["WCAG contrast", "contrast", render.marks],
-            ["rendered font", "renderedFont", render.value]
-        ];
+            ["contrast", render.marks],
+            ["renderedFont", render.value]
+        ]
+            .filter(([key]) => !hiddenProperties.has(key))
+            .map(([key, renderValue]) => [properties.propertyLabel(key), key, renderValue]);
 
         const labelWidth = Math.max(...derivedRows.map(([label]) => label.length));
 
@@ -141,7 +159,7 @@
         tooltip.show(
             [
                 ...lines,
-                derived,
+                ...(derivedRows.length ? [derived] : []),
                 ...(attributes ? [attributes] : []),
                 render.boxModel(el)
             ],
@@ -468,11 +486,21 @@
         }
     }
 
+    // Row keys from Scope.properties that are unchecked in the popup.
+    function applyHiddenProperties(keys = []) {
+        hiddenProperties = new Set(keys);
+
+        if (inspectedElement) {
+            inspectElement(inspectedElement);
+        }
+    }
+
     browser.storage.local
-        .get(["disabledSites", "showDefaultValues"])
-        .then(({ disabledSites, showDefaultValues }) => {
+        .get(["disabledSites", "showDefaultValues", "hiddenProperties"])
+        .then(({ disabledSites, showDefaultValues, hiddenProperties }) => {
             applyDisabledSites(disabledSites);
             applyShowDefaultValues(showDefaultValues);
+            applyHiddenProperties(hiddenProperties);
         });
 
     browser.storage.onChanged.addListener((changes, area) => {
@@ -486,6 +514,10 @@
 
         if (changes.showDefaultValues) {
             applyShowDefaultValues(changes.showDefaultValues.newValue);
+        }
+
+        if (changes.hiddenProperties) {
+            applyHiddenProperties(changes.hiddenProperties.newValue);
         }
     });
 })(globalThis.Scope ??= {});

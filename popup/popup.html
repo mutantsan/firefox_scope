@@ -48,6 +48,54 @@
             word-break: break-all;
         }
 
+        summary {
+            cursor: pointer;
+        }
+
+        #bulk {
+            margin-top: 6px;
+            color: var(--muted);
+        }
+
+        /* Text links rather than buttons, so they don't outweigh the
+           checkboxes. */
+        #bulk button {
+            padding: 0;
+            border: none;
+            background: none;
+            color: inherit;
+            font: inherit;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        #bulk button:hover {
+            color: var(--fg);
+        }
+
+        #properties {
+            display: grid;
+            grid-template-columns: auto auto;
+            gap: 8px 16px;
+            margin-top: 8px;
+        }
+
+        fieldset {
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+
+        legend {
+            padding: 0;
+            margin-bottom: 2px;
+            color: var(--muted);
+        }
+
+        #properties label {
+            font-family: monospace;
+        }
+
         .unavailable #site-setting {
             opacity: 0.5;
             cursor: default;
@@ -60,6 +108,17 @@
         Show default values
     </label>
 
+    <details>
+        <summary>Shown properties</summary>
+        <div id="bulk">
+            Show
+            <button type="button" id="show-all">all</button>
+            ·
+            <button type="button" id="hide-all">none</button>
+        </div>
+        <div id="properties"></div>
+    </details>
+
     <hr>
 
     <label id="site-setting">
@@ -68,6 +127,7 @@
     </label>
     <div id="site"></div>
 
+    <script src="../content/properties.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>

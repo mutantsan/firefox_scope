@@ -38,11 +38,37 @@
             color: #888;
         }
 
+        /* A long value, e.g. a font stack, wraps within its own column
+           instead of running past the tooltip's edge. */
+        .row {
+            display: flex;
+            gap: 2ch;
+        }
+
+        .row > :first-child {
+            flex: none;
+        }
+
+        .row-values {
+            min-width: 0;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
         .section,
         .diagram {
             margin-top: 8px;
             padding-top: 8px;
             border-top: 1px solid #333;
+        }
+
+        /* When every row above is hidden, the pin bar already draws the
+           dividing line. */
+        .pin-tip + .section,
+        .pin-tip + .diagram {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
         }
 
         .chip {
@@ -189,21 +215,25 @@
 
     // A label and its value, followed by the hovered value when it differs.
     function row(label, copyValue, normalValue, hoverValue, render) {
-        const line = document.createElement("div");
+        const line = element("div", "row");
         const name = document.createElement("span");
 
         name.textContent = label;
         makeCopyable(name, copyValue);
 
-        line.append(name, "  ", render(normalValue));
+        const values = element("span", "row-values");
+
+        values.append(render(normalValue));
 
         if (normalValue !== hoverValue) {
             const arrow = element("span", "arrow");
 
             arrow.textContent = "→";
 
-            line.append("  ", arrow, "  ", render(hoverValue));
+            values.append("  ", arrow, "  ", render(hoverValue));
         }
+
+        line.append(name, values);
 
         return line;
     }
