@@ -106,6 +106,13 @@ For a local file, it turns Scope off for all local files.
 - A box model diagram with each side's margin, border and padding, and the
   content size. The same regions are shaded on the page: margin in orange,
   border in yellow, padding in green and content in blue
+- Accessibility, hidden until switched on in **Tooltip rows**: the
+  element's accessible name, its role (such as `button`, `link` or
+  `heading, level 2`), and whether it can be reached with Tab. A name is
+  marked **missing** when an element like a button, link, form field or
+  image has none, so screen readers have nothing to announce. These follow
+  the same rules browsers use, but are worked out from the page, so rare
+  cases can differ from DevTools
 
 The tooltip opens with the element's tag, id and classes, and
 lists the rows in the same groups as above.

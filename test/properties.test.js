@@ -7,7 +7,7 @@ require("../content/properties.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { propertyGroups, propertyLabel } = Scope.properties;
+const { propertyGroups, hiddenKeys, propertyLabel } = Scope.properties;
 const { properties, borderColorProperties } = Scope.styles;
 
 const keys = propertyGroups.flatMap(group => group.keys);
@@ -18,7 +18,10 @@ test("the popup lists every tooltip row once", () => {
         "borderColor",
         "contrast",
         "renderedFont",
-        "boxModel"
+        "boxModel",
+        "accessibleName",
+        "role",
+        "focusable"
     ];
 
     assert.deepEqual([...keys].sort(), rows.sort());
@@ -29,4 +32,19 @@ test("propertyLabel shows CSS names and derived row names", () => {
     assert.equal(propertyLabel("contrast"), "WCAG contrast");
     assert.equal(propertyLabel("renderedFont"), "rendered font");
     assert.equal(propertyLabel("boxModel"), "box model");
+    assert.equal(propertyLabel("accessibleName"), "name");
+    assert.equal(propertyLabel("role"), "role");
+    assert.equal(propertyLabel("focusable"), "keyboard-focusable");
+});
+
+test("the Accessibility rows are hidden until shown", () => {
+    assert.deepEqual(
+        [...hiddenKeys()].sort(),
+        ["accessibleName", "focusable", "role"]
+    );
+
+    assert.deepEqual(
+        [...hiddenKeys(["color"], ["role"])].sort(),
+        ["accessibleName", "color", "focusable"]
+    );
 });

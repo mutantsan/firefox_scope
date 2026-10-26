@@ -92,6 +92,17 @@
         return [...(shadowRootOf(el) ?? el).children];
     }
 
+    // As flatChildren(), with text nodes too.
+    function flatChildNodes(el) {
+        if (el instanceof HTMLSlotElement) {
+            const assigned = el.assignedNodes();
+
+            return assigned.length ? assigned : [...el.childNodes];
+        }
+
+        return [...(shadowRootOf(el) ?? el).childNodes];
+    }
+
     // The focused element, in whichever shadow root it is. A key event's
     // target stops at a closed root's host.
     function focusedElement() {
@@ -141,6 +152,7 @@
         deepestAt,
         focusedElement,
         flatParent,
+        flatChildNodes,
         renderedParent,
         renderedChildren
     };

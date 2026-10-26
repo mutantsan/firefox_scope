@@ -166,6 +166,10 @@
             vertical-align: 1px;
         }
 
+        .badge:first-child {
+            margin-left: 0;
+        }
+
         .badge.pass {
             background: rgba(74, 222, 128, 0.14);
             color: var(--pass);
@@ -312,6 +316,49 @@
         }
 
         makeCopyable(node, text);
+
+        return node;
+    }
+
+    // A quoted accessible name, or "none" dimmed, or "missing" as a failure
+    // when the element's role needs a name.
+    function accessibleName(text) {
+        if (text === "missing") {
+            const node = element("span", "marks");
+            const badge = element("span", "badge fail");
+
+            badge.textContent = "missing ✗";
+            node.append(badge);
+            makeCopyable(node, text);
+
+            return node;
+        }
+
+        const node = value(text);
+
+        if (text === "none") {
+            node.classList.add("zero");
+        }
+
+        return node;
+    }
+
+    // "yes" as a pass badge, "no" dimmed.
+    function yesNo(text) {
+        if (text === "yes") {
+            const node = element("span", "marks");
+            const badge = element("span", "badge pass");
+
+            badge.textContent = "yes ✓";
+            node.append(badge);
+            makeCopyable(node, text);
+
+            return node;
+        }
+
+        const node = value(text);
+
+        node.classList.add("zero");
 
         return node;
     }
@@ -584,5 +631,5 @@
         return diagram;
     }
 
-    Scope.render = { value, marks, row, group, props, identity, path, boxModel };
+    Scope.render = { value, marks, accessibleName, yesNo, row, group, props, identity, path, boxModel };
 })(globalThis.Scope ??= {});

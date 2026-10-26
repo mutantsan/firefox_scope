@@ -2,11 +2,15 @@
 (function (Scope) {
     "use strict";
 
-    const { ui, tree, properties, styles, render, tooltip, overlays, measure } = Scope;
+    const {
+        ui, tree, properties, styles, accessibility, render, tooltip, overlays, measure
+    } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
-    let hiddenProperties = new Set();
+    let hiddenProperties = properties.hiddenKeys();
+    let storedHidden = [];
+    let storedShown = [];
     let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
@@ -34,7 +38,10 @@
     // value is drawn.
     const derivedRenderers = {
         contrast: render.marks,
-        renderedFont: render.value
+        renderedFont: render.value,
+        accessibleName: render.accessibleName,
+        role: render.value,
+        focusable: render.yesNo
     };
 
     // The popup's row key: the four border colors share one.
@@ -141,6 +148,18 @@
         for (const key of ["contrast", "renderedFont"]) {
             if (!hiddenProperties.has(key)) {
                 rows.push([key, normal[key], hover[key]]);
+            }
+        }
+
+        // The same with or without hover, so only measured once.
+        const a11yKeys = ["accessibleName", "role", "focusable"]
+            .filter(key => !hiddenProperties.has(key));
+
+        if (a11yKeys.length) {
+            const a11y = accessibility.summary(el);
+
+            for (const key of a11yKeys) {
+                rows.push([key, a11y[key], a11y[key]]);
             }
         }
 
@@ -788,9 +807,12 @@
         }
     }
 
-    // Row keys from Scope.properties that are unchecked in the popup.
-    function applyHiddenProperties(keys = []) {
-        hiddenProperties = new Set(keys);
+    // Row keys from Scope.properties that are unchecked in the popup,
+    // stored as hidden or, for rows hidden by default, not stored as shown.
+    function applyHiddenProperties(hidden = storedHidden, shown = storedShown) {
+        storedHidden = hidden;
+        storedShown = shown;
+        hiddenProperties = properties.hiddenKeys(hidden, shown);
 
         if (inspectedElement) {
             inspectElement(inspectedElement);
@@ -798,11 +820,11 @@
     }
 
     browser.storage.local
-        .get(["disabledSites", "showDefaultValues", "hiddenProperties"])
-        .then(({ disabledSites, showDefaultValues, hiddenProperties }) => {
+        .get(["disabledSites", "showDefaultValues", "hiddenProperties", "shownProperties"])
+        .then(({ disabledSites, showDefaultValues, hiddenProperties, shownProperties }) => {
             applyDisabledSites(disabledSites);
             applyShowDefaultValues(showDefaultValues);
-            applyHiddenProperties(hiddenProperties);
+            applyHiddenProperties(hiddenProperties, shownProperties);
         });
 
     browser.storage.onChanged.addListener((changes, area) => {
@@ -818,8 +840,11 @@
             applyShowDefaultValues(changes.showDefaultValues.newValue);
         }
 
-        if (changes.hiddenProperties) {
-            applyHiddenProperties(changes.hiddenProperties.newValue);
+        if (changes.hiddenProperties || changes.shownProperties) {
+            applyHiddenProperties(
+                changes.hiddenProperties ? changes.hiddenProperties.newValue ?? [] : storedHidden,
+                changes.shownProperties ? changes.shownProperties.newValue ?? [] : storedShown
+            );
         }
     });
 

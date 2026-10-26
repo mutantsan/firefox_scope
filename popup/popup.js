@@ -20,12 +20,16 @@
     });
 
     // One pill per tooltip row, unchecked when the row is hidden.
-    const { propertyGroups, propertyLabel } = Scope.properties;
+    const { propertyGroups, hiddenByDefault, hiddenKeys, propertyLabel } =
+        Scope.properties;
     const propertiesList = document.getElementById("properties");
     const rowsCount = document.getElementById("rows-count");
 
-    const { hiddenProperties = [] } =
-        await browser.storage.local.get("hiddenProperties");
+    const settings =
+        await browser.storage.local.get(["hiddenProperties", "shownProperties"]);
+
+    const hiddenAtStart =
+        hiddenKeys(settings.hiddenProperties, settings.shownProperties);
 
     const inputs = new Map();
     const groupCounts = [];
@@ -40,8 +44,11 @@
         rowsCount.textContent = `${shown.length} of ${inputs.size} shown`;
     }
 
-    // One write per change, so a pinned tooltip redraws once. Re-read so a
-    // change made in another window isn't overwritten.
+    /*
+     * One write per change, so a pinned tooltip redraws once. Re-read so a
+     * change made in another window isn't overwritten. A row that's hidden
+     * by default is stored when shown, any other when hidden.
+     */
     async function setShown(keys, shown) {
         for (const key of keys) {
             inputs.get(key).checked = shown;
@@ -49,21 +56,25 @@
 
         updateCounts();
 
-        const { hiddenProperties = [] } =
-            await browser.storage.local.get("hiddenProperties");
+        const { hiddenProperties = [], shownProperties = [] } =
+            await browser.storage.local.get(["hiddenProperties", "shownProperties"]);
 
         const hidden = new Set(hiddenProperties);
+        const shownByChoice = new Set(shownProperties);
 
         for (const key of keys) {
-            if (shown) {
-                hidden.delete(key);
+            const stored = hiddenByDefault.has(key) ? shownByChoice : hidden;
+
+            if (shown === hiddenByDefault.has(key)) {
+                stored.add(key);
             } else {
-                hidden.add(key);
+                stored.delete(key);
             }
         }
 
         await browser.storage.local.set({
-            hiddenProperties: [...hidden]
+            hiddenProperties: [...hidden],
+            shownProperties: [...shownByChoice]
         });
     }
 
@@ -93,7 +104,7 @@
 
             label.className = "pill";
             input.type = "checkbox";
-            input.checked = !hiddenProperties.includes(key);
+            input.checked = !hiddenAtStart.has(key);
 
             input.addEventListener("change", () => {
                 setShown([key], input.checked);

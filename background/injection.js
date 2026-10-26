@@ -12,6 +12,7 @@
         "/shared/browser.js",
         "/content/ui.js",
         "/content/tree.js",
+        "/content/accessibility.js",
         "/content/properties.js",
         "/content/colors.js",
         "/content/fonts.js",
