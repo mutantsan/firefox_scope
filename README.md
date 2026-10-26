@@ -52,6 +52,28 @@ Temporary add-ons are removed when Firefox restarts.
 If nothing happens on a page, check the extension's site access under
 `about:addons` → Scope → Permissions.
 
+## Release a new version
+
+1. Bump `version` in `manifest.json`. AMO rejects a version that was already
+   uploaded.
+2. Lint and package with [web-ext](https://github.com/mozilla/web-ext):
+
+   ```sh
+   npx web-ext lint
+   npx web-ext build --overwrite-dest
+   ```
+
+   This writes `web-ext-artifacts/scope-<version>.zip`. Repo-only files are
+   excluded via `web-ext-config.mjs`.
+3. Upload the zip on [addons.mozilla.org](https://addons.mozilla.org/developers/)
+   → Scope → **Upload New Version**, or sign and submit from the command line
+   with API keys from **Tools → Manage API Keys**:
+
+   ```sh
+   npx web-ext sign --channel=listed \
+       --api-key=$AMO_JWT_ISSUER --api-secret=$AMO_JWT_SECRET
+   ```
+
 ## Permissions
 
 - **Content script on all `http://` and `https://` pages**: reads computed
