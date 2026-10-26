@@ -34,7 +34,14 @@
         "http://*/*",
         "https://*/*"
       ],
-      "js": ["inspector.js"],
+      "js": [
+        "content/colors.js",
+        "content/styles.js",
+        "content/overlays.js",
+        "content/tooltip.js",
+        "content/render.js",
+        "content/inspector.js"
+      ],
       "run_at": "document_idle"
     }
   ]
