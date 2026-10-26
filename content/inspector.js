@@ -162,7 +162,8 @@
             ],
             copyAllText,
             mouseX,
-            mouseY
+            mouseY,
+            render.path(el, walkTo)
         );
 
         if (el !== inspectedElement) {
@@ -245,6 +246,77 @@
         },
         true
     );
+
+    // -------------------------------------------------------------------------
+    // Keyboard: arrows walk the DOM while pinned
+    // -------------------------------------------------------------------------
+
+    // Elements without a box, e.g. <script> or display: none, have nothing
+    // to show, and the UI host isn't part of the page.
+    function hasBox(el) {
+        return el !== ui.host && el.getClientRects().length > 0;
+    }
+
+    function nextWithBox(el, step) {
+        while (el && !hasBox(el)) {
+            el = step(el);
+        }
+
+        return el;
+    }
+
+    // ↑ parent, ↓ first child, ← and → siblings. Each returns null at the
+    // end of the line.
+    const walks = {
+        ArrowUp: el => nextWithBox(el.parentElement, e => e.parentElement),
+        ArrowDown: el => nextWithBox(el.firstElementChild, e => e.nextElementSibling),
+        ArrowLeft: el => nextWithBox(el.previousElementSibling, e => e.previousElementSibling),
+        ArrowRight: el => nextWithBox(el.nextElementSibling, e => e.nextElementSibling)
+    };
+
+    // Scrolls an element that is entirely out of view back into it, so the
+    // focus border stays visible. One partly in view is left where it is.
+    function walkTo(el) {
+        const rect = el.getBoundingClientRect();
+
+        if (
+            rect.bottom < 0 ||
+            rect.right < 0 ||
+            rect.top > window.innerHeight ||
+            rect.left > window.innerWidth
+        ) {
+            el.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+
+        inspectElement(el);
+    }
+
+    // Arrows with a modifier, or in a text field, keep their usual meaning,
+    // e.g. Alt+← goes back in history.
+    function walk(event) {
+        const step = walks[event.key];
+
+        if (
+            !step ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            isEditable(event.composedPath()[0]) ||
+            !inspectedElement?.isConnected
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const next = step(inspectedElement);
+
+        if (next) {
+            walkTo(next);
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Keyboard: Alt measures
@@ -338,6 +410,8 @@
                 } else if (event.key === "Shift" && !shiftPressed) {
                     shiftPressed = true;
                     hideInspector();
+                } else {
+                    walk(event);
                 }
 
                 return;

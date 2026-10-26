@@ -49,7 +49,8 @@
         }
 
         .pin-bar,
-        .pin-tip {
+        .pin-tip,
+        .path {
             margin-bottom: 6px;
             padding-bottom: 6px;
             border-bottom: 1px solid #333;
@@ -65,6 +66,7 @@
         }
 
         .tooltip:not(.pinned) .pin-bar,
+        .tooltip:not(.pinned) .path,
         .tooltip.pinned .pin-tip {
             display: none;
         }
@@ -122,7 +124,8 @@
     // Pin bar (only visible while pinned)
     // -------------------------------------------------------------------------
 
-    const pinHint = "Click to copy · Alt to measure · Esc to close";
+    const pinHint =
+        "Click to copy · Arrows to move · Alt to measure · Esc to close";
 
     const pinBar = document.createElement("div");
 
@@ -318,14 +321,17 @@
         tooltip.classList.toggle("faded", value);
     }
 
-    // Shows `nodes` below the pin bar, next to the pointer. A pinned
-    // tooltip is being redrawn, e.g. after a setting changed in the popup,
-    // so it stays put rather than jumping to where the pointer left the
-    // page.
-    function show(nodes, allText, mouseX, mouseY) {
+    // Shows `nodes` below the pin bar, next to the pointer, and `path`, the
+    // element's place in the page, under the bar while pinned. A pinned
+    // tooltip is being redrawn, e.g. after a setting changed in the popup
+    // or the arrow keys moved to another element, so it stays put rather
+    // than jumping to where the pointer left the page.
+    function show(nodes, allText, mouseX, mouseY, path) {
         copyAllText = allText;
 
-        tooltip.replaceChildren(pinBar, pinTip, ...nodes);
+        // The pin tip stays right before the rows, which rely on it to drop
+        // their divider when they come first.
+        tooltip.replaceChildren(pinBar, path, pinTip, ...nodes);
         tooltip.style.display = "block";
 
         if (pinned) {

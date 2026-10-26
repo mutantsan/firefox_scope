@@ -33,6 +33,12 @@ click doesn't reach the page, so it won't follow links. Then:
   declarations
 - drag to select any text as usual
 
+A pinned tooltip also shows where the element sits in the page, e.g.
+`main > section.hero > h1`. To inspect a nearby element that is hard to point
+at, use the arrow keys: **↑** moves to the parent, **↓** to the first child,
+and **←** and **→** to the previous and next sibling. Elements that aren't
+displayed are skipped. Click a parent in the path to jump straight to it.
+
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
 it.
 

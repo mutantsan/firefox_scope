@@ -150,6 +150,26 @@
             justify-content: center;
             font-size: 11px;
         }
+
+        /* Wraps at the tooltip's width rather than widening it. */
+        .path {
+            contain: inline-size;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .crumb {
+            cursor: pointer;
+        }
+
+        .crumb:hover {
+            color: #eee;
+        }
+
+        .crumb.current {
+            color: #eee;
+            cursor: default;
+        }
     `);
 
     function element(tag, className) {
@@ -293,6 +313,65 @@
     }
 
     // -------------------------------------------------------------------------
+    // Path
+    // -------------------------------------------------------------------------
+
+    // Ancestors shown above the element; further ones are cut to "…".
+    const pathDepth = 4;
+
+    // The tag with the id, or else the first class, e.g. `section.hero`.
+    // One class is enough to tell elements apart and keeps long utility
+    // class lists short.
+    function crumbLabel(el) {
+        const id = el.getAttribute("id")?.trim();
+        const className = el.getAttribute("class")?.trim().split(/\s+/)[0];
+
+        if (id) {
+            return `${el.localName}#${id}`;
+        }
+
+        return className ? `${el.localName}.${className}` : el.localName;
+    }
+
+    /*
+     * Where `el` sits in the page, e.g. `main > section.hero > h1`.
+     * Clicking an ancestor calls `select` with it.
+     */
+    function path(el, select) {
+        const node = element("div", "path");
+        const ancestors = [];
+
+        for (
+            let parent = el.parentElement;
+            parent && ancestors.length <= pathDepth;
+            parent = parent.parentElement
+        ) {
+            ancestors.unshift(parent);
+        }
+
+        if (ancestors.length > pathDepth) {
+            ancestors.shift();
+            node.append("… > ");
+        }
+
+        for (const ancestor of ancestors) {
+            const crumb = element("span", "crumb");
+
+            crumb.textContent = crumbLabel(ancestor);
+            crumb.addEventListener("click", () => select(ancestor));
+
+            node.append(crumb, " > ");
+        }
+
+        const current = element("span", "crumb current");
+
+        current.textContent = crumbLabel(el);
+        node.append(current);
+
+        return node;
+    }
+
+    // -------------------------------------------------------------------------
     // Box model diagram
     // -------------------------------------------------------------------------
 
@@ -385,5 +464,5 @@
         return diagram;
     }
 
-    Scope.render = { value, marks, row, section, attributes, boxModel };
+    Scope.render = { value, marks, row, section, attributes, path, boxModel };
 })(globalThis.Scope ??= {});
