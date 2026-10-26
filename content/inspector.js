@@ -218,6 +218,15 @@
         }
     }
 
+    // A cross-origin sheet's copy arrives after the first inspection that
+    // needed it, which fell back to a clone, so the values are measured
+    // again with it.
+    styles.onSheetLoaded(() => {
+        if (tooltip.isVisible() && !altPressed && inspectedElement?.isConnected) {
+            inspectElement(inspectedElement);
+        }
+    });
+
     // -------------------------------------------------------------------------
     // Mouse tracking
     // -------------------------------------------------------------------------

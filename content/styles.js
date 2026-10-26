@@ -258,6 +258,118 @@
         return found;
     }
 
+    // -------------------------------------------------------------------------
+    // Readable copies of cross-origin sheets
+    // -------------------------------------------------------------------------
+
+    // Relative url()s in a sheet's text resolved against the sheet's URL,
+    // for a copy placed in the page. Fragment-only ones like `url(#clip)`
+    // point into the document and are kept.
+    function absoluteUrls(text, base) {
+        return text.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (match, quote, url) => {
+            if (!url || url.startsWith("#") || /^[a-z][a-z\d+.-]*:/i.test(url)) {
+                return match;
+            }
+
+            try {
+                return `url(${quote}${new URL(url, base).href}${quote})`;
+            } catch {
+                return match;
+            }
+        });
+    }
+
+    /*
+     * Each cross-origin sheet's text by URL, fetched as the page would with
+     * CORS, so only text the page could read itself is used: the copy is
+     * briefly in the page, where its scripts could see it. Holds "loading"
+     * while fetching, null when the text can't be had or used, otherwise
+     * the text and a parsed copy for finding its :hover rules off the page.
+     * A sheet with @import is skipped, since a copy loads imports later.
+     */
+    const sheetCopies = new Map();
+    let sheetLoadedListener = () => {};
+
+    function onSheetLoaded(listener) {
+        sheetLoadedListener = listener;
+    }
+
+    async function loadSheetCopy(href) {
+        sheetCopies.set(href, "loading");
+
+        let copy = null;
+
+        try {
+            const response = await content.fetch(href, {
+                mode: "cors",
+                credentials: "omit",
+                cache: "force-cache"
+            });
+
+            const text = response.ok ? await response.text() : "";
+
+            if (text && !/@import/i.test(text)) {
+                const parsed = new CSSStyleSheet({ baseURL: href });
+
+                parsed.replaceSync(text);
+                copy = { text: absoluteUrls(text, href), parsed };
+            }
+        } catch {
+            // No CORS, blocked by the page's CSP, or not CSS.
+        }
+
+        sheetCopies.set(href, copy);
+
+        if (copy) {
+            sheetLoadedListener();
+        }
+    }
+
+    // The copy of an unreadable sheet, or null while there is none. A
+    // sheet seen for the first time starts loading.
+    function sheetCopy(sheet) {
+        const { href, ownerNode } = sheet;
+
+        if (!href || !ownerNode || !/^https?:/.test(href) || typeof content === "undefined") {
+            return null;
+        }
+
+        if (!sheetCopies.has(href)) {
+            loadSheetCopy(href);
+        }
+
+        const copy = sheetCopies.get(href);
+
+        return copy === "loading" ? null : copy;
+    }
+
+    /*
+     * Puts a readable copy of the sheet in its place and disables the
+     * original, so the cascade order is unchanged. Returns the copy's
+     * sheet and an undo, or null when the page's CSP blocks the copy.
+     */
+    function swapInCopy(sheet, copy) {
+        const style = document.createElement("style");
+
+        style.textContent = copy.text;
+        style.media = sheet.media.mediaText;
+        sheet.ownerNode.after(style);
+
+        const undo = () => {
+            style.remove();
+            sheet.disabled = false;
+        };
+
+        if (!style.sheet || style.sheet.cssRules.length !== copy.parsed.cssRules.length) {
+            undo();
+            return null;
+        }
+
+        sheet.disabled = true;
+
+        return { sheet: style.sheet, undo };
+    }
+
     function matchesSafely(el, selector) {
         try {
             return el.matches(selector);
@@ -282,6 +394,23 @@
         return hovered === null || normal === null || hovered !== normal;
     }
 
+    // Adds the rules in `found` whose :hover could change how one of
+    // `nodes` is styled. A nested rule's :hover can sit in a parent rule's
+    // selector, so the rules added are the ones in the chain that hold it.
+    function addHoverRules(found, nodes, rules) {
+        for (const { rule, selector } of found) {
+            if (!nodes.some(node => dependsOnHover(node, selector))) {
+                continue;
+            }
+
+            for (let r = rule; r; r = r.parentRule) {
+                if (r instanceof CSSStyleRule && r.selectorText.includes(":hover")) {
+                    rules.add(r);
+                }
+            }
+        }
+    }
+
     /*
      * The :hover rules that could style the page around `el` differently
      * when nothing is hovered. Only `el` and its ancestors are hovered,
@@ -289,10 +418,10 @@
      * behind `el`, which count for contrast. Each element is matched only
      * against the sheets of its own tree.
      *
-     * A nested rule's :hover can sit in a parent rule's selector, so the
-     * rules that get rewritten are the ones in the chain that hold it.
-     * `unreadable` is set when one of those trees has a sheet that can't
-     * be read, whose rules then can't be rewritten.
+     * A sheet that can't be read, like a cross-origin one, is checked
+     * through its copy, see sheetCopy(), and goes in `copied` when its
+     * rules need switching off. `unreadable` is set when a sheet that
+     * can't be read has no copy, so its rules can't be switched off.
      */
     function findHoverRules(el, behind) {
         const byRoot = new Map();
@@ -304,6 +433,7 @@
         }
 
         const rules = new Set();
+        const copied = [];
         let unreadable = false;
 
         for (const [root, nodes] of byRoot) {
@@ -313,28 +443,30 @@
             ];
 
             for (const sheet of sheets) {
-                const found = hoverRules(sheet);
-
-                if (!found) {
-                    unreadable = true;
+                if (sheet.disabled) {
                     continue;
                 }
 
-                for (const { rule, selector } of found) {
-                    if (!nodes.some(node => dependsOnHover(node, selector))) {
-                        continue;
-                    }
+                const found = hoverRules(sheet);
 
-                    for (let r = rule; r; r = r.parentRule) {
-                        if (r instanceof CSSStyleRule && r.selectorText.includes(":hover")) {
-                            rules.add(r);
-                        }
-                    }
+                if (found) {
+                    addHoverRules(found, nodes, rules);
+                    continue;
+                }
+
+                const copy = sheetCopy(sheet);
+
+                if (!copy) {
+                    unreadable = true;
+                } else if (hoverRules(copy.parsed).some(({ selector }) =>
+                    nodes.some(node => dependsOnHover(node, selector))
+                )) {
+                    copied.push({ sheet, copy, nodes });
                 }
             }
         }
 
-        return { rules, roots: [...byRoot.keys()], unreadable };
+        return { rules, copied, roots: [...byRoot.keys()], unreadable };
     }
 
     function animationsIn(roots) {
@@ -374,11 +506,13 @@
     /*
      * Runs `measure` with each rule's :hover replaced by :not(*), which
      * nothing matches, so the page is styled as if nothing were hovered.
-     * The rules are restored before the next paint, so the page never
-     * visibly changes. Any transition already running on a hover change
-     * jumps to its end.
+     * Each copied sheet is first swapped for its copy, whose rules can be
+     * rewritten. `measure` is told when the page blocked a copy, leaving
+     * :hover rules that couldn't be switched off. Everything is restored
+     * before the next paint, so the page never visibly changes. Any
+     * transition already running on a hover change jumps to its end.
      */
-    function withoutHover(rules, roots, measure) {
+    function withoutHover(rules, copied, roots, measure) {
         const before = animationsIn(roots);
 
         const times = [...before]
@@ -390,19 +524,40 @@
                 currentTime: animation.currentTime
             }));
 
-        const original = [...rules].map(rule => [rule, rule.selectorText]);
+        const undos = [];
+        let original = [];
+        let blocked = false;
 
         try {
+            const all = new Set(rules);
+
+            for (const { sheet, copy, nodes } of copied) {
+                const swapped = swapInCopy(sheet, copy);
+
+                if (swapped) {
+                    undos.push(swapped.undo);
+                    addHoverRules(collectHoverRules(swapped.sheet.cssRules, []), nodes, all);
+                } else {
+                    blocked = true;
+                }
+            }
+
+            original = [...all].map(rule => [rule, rule.selectorText]);
+
             for (const [rule, text] of original) {
                 rule.selectorText = text.replace(/:hover\b/g, ":not(*)");
             }
 
             settleAnimations(roots, before, times);
 
-            return measure();
+            return measure(blocked);
         } finally {
             for (const [rule, text] of original) {
                 rule.selectorText = text;
+            }
+
+            for (const undo of undos) {
+                undo();
             }
 
             settleAnimations(roots, before, times);
@@ -501,20 +656,20 @@
      * `.card:hover .title`. When no :hover rule could apply, the normal
      * state is the hovered one and nothing is changed.
      *
-     * Rules in a sheet that can't be read, like a cross-origin one, can't
+     * Rules in a sheet that can't be read and has no usable copy can't
      * be switched off, so then the element is also cloned, see
      * getCloneNormalStyles(). `hover` must be measured before, since
      * the clone also changes the original's structural matches.
      */
     function getNormalStyles(el, hover) {
-        const { rules, roots, unreadable } = findHoverRules(el, elementsBehind(el));
+        const { rules, copied, roots, unreadable } = findHoverRules(el, elementsBehind(el));
 
-        if (!rules.size && !unreadable) {
+        if (!rules.size && !copied.length && !unreadable) {
             return hover;
         }
 
-        return withoutHover(rules, roots, () =>
-            unreadable ? getCloneNormalStyles(el, hover) : getStyles(el)
+        return withoutHover(rules, copied, roots, blocked =>
+            unreadable || blocked ? getCloneNormalStyles(el, hover) : getStyles(el)
         );
     }
 
@@ -540,6 +695,8 @@
         boxSides,
         getStyles,
         getNormalStyles,
+        onSheetLoaded,
+        absoluteUrls,
         collapseBorderColors
     };
 })(globalThis.Scope ??= {});

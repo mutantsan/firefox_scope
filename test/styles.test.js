@@ -8,7 +8,7 @@ require("../content/styles.js");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { isDefault, isGapContainer, isRelevant, toCssName, declaration, collapseBorderColors } = Scope.styles;
+const { isDefault, isGapContainer, isRelevant, toCssName, declaration, collapseBorderColors, absoluteUrls } = Scope.styles;
 
 test("isDefault recognizes default values", () => {
     assert.equal(isDefault("margin", "0px"), true);
@@ -92,4 +92,21 @@ test("collapseBorderColors is true when all four sides match", () => {
 
     assert.equal(collapseBorderColors(sides("#000000")), true);
     assert.equal(collapseBorderColors({ ...sides("#000000"), borderLeftColor: "#ffffff" }), false);
+});
+
+test("absoluteUrls resolves a copied sheet's urls against the sheet", () => {
+    const base = "https://cdn.example.com/css/site.css";
+
+    assert.equal(
+        absoluteUrls("a{background:url(img/a.png)}", base),
+        "a{background:url(https://cdn.example.com/css/img/a.png)}"
+    );
+    assert.equal(
+        absoluteUrls(`a{src:url("../f.woff2") format("woff2"),url( '/b.svg' )}`, base),
+        `a{src:url("https://cdn.example.com/f.woff2") format("woff2"),url('https://cdn.example.com/b.svg')}`
+    );
+    assert.equal(
+        absoluteUrls(`a{clip-path:url(#c);b:url("data:image/svg+xml,<svg>(x)</svg>");c:url(https://x.test/a)}`, base),
+        `a{clip-path:url(#c);b:url("data:image/svg+xml,<svg>(x)</svg>");c:url(https://x.test/a)}`
+    );
 });
