@@ -47,8 +47,7 @@ without reloading the page.
   border in yellow, padding in green and content in blue
 
 When the hovered state differs from the normal state, both are shown:
-`normal → hover`. The normal state is approximated by measuring an off-screen
-clone of the element that the pointer isn't over.
+`normal → hover`.
 
 ## Install for development
 

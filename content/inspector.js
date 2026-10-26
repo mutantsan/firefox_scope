@@ -25,8 +25,9 @@
     // -------------------------------------------------------------------------
 
     function inspectElement(el) {
-        const normal = styles.getNormalStyles(el);
+        // Hovered first: measuring the normal state inserts clones.
         const hover = styles.getStyles(el);
+        const normal = styles.getNormalStyles(el, hover);
 
         const normalBordersCollapsed =
             styles.collapseBorderColors(normal);

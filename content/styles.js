@@ -115,30 +115,232 @@
         return result;
     }
 
+    // -------------------------------------------------------------------------
+    // Normal (non-hovered) state
+    // -------------------------------------------------------------------------
+
+    // Selectors of the :hover rules in each stylesheet, cached until the
+    // sheet's rule count changes, e.g. when CSS-in-JS inserts a rule.
+    const hoverSelectorCache = new WeakMap();
+
+    // A nested rule's selector is relative to its parent style rule, so it
+    // is resolved into one that Element.matches() understands.
+    function resolveSelector(rule) {
+        let parent = rule.parentRule;
+
+        while (parent && !(parent instanceof CSSStyleRule)) {
+            parent = parent.parentRule;
+        }
+
+        if (!parent) {
+            return rule.selectorText;
+        }
+
+        const scope = `:is(${resolveSelector(parent)})`;
+        const own = rule.selectorText;
+
+        return own.includes("&")
+            ? own.replaceAll("&", scope)
+            : `${scope} :is(${own})`;
+    }
+
+    function collectHoverSelectors(rules, selectors) {
+        for (const rule of rules) {
+            if (rule instanceof CSSImportRule) {
+                if (rule.styleSheet) {
+                    collectHoverSelectors(rule.styleSheet.cssRules, selectors);
+                }
+
+                continue;
+            }
+
+            // Resolved first, since a nested rule can depend on its parent's
+            // :hover, e.g. `.card:hover { .title { … } }`.
+            if (rule instanceof CSSStyleRule) {
+                const selector = resolveSelector(rule);
+
+                if (selector.includes(":hover")) {
+                    selectors.push(selector);
+                }
+            }
+
+            // Grouping rules (@media, @supports, @layer…) and nesting.
+            if (rule.cssRules) {
+                collectHoverSelectors(rule.cssRules, selectors);
+            }
+        }
+
+        return selectors;
+    }
+
+    // Null when the sheet can't be read, e.g. a cross-origin one.
+    function hoverSelectors(sheet) {
+        let rules;
+
+        try {
+            rules = sheet.cssRules;
+        } catch {
+            return null;
+        }
+
+        const cached = hoverSelectorCache.get(sheet);
+
+        if (cached && cached.count === rules.length) {
+            return cached.selectors;
+        }
+
+        let selectors;
+
+        try {
+            selectors = collectHoverSelectors(rules, []);
+        } catch {
+            // An unreadable @import.
+            return null;
+        }
+
+        hoverSelectorCache.set(sheet, { count: rules.length, selectors });
+
+        return selectors;
+    }
+
+    function matchesSafely(el, selector) {
+        try {
+            return el.matches(selector);
+        } catch {
+            return null;
+        }
+    }
+
     /*
-     * Get approximately the non-hovered state by cloning the element.
+     * Whether any :hover rule could style the element differently when it
+     * isn't hovered. Each selector is matched with :hover forced on and
+     * forced off: if that changes the result, the rule depends on hover.
      *
-     * A freshly inserted clone isn't in the pointer's hover chain, so
-     * :hover does not apply to it. It is placed right after the original
-     * with no layout overrides, so position, display and size come out as
-     * the page styles them. It's removed before the next paint, so the
-     * page never visibly shifts.
+     * The inspected element is the deepest one under the pointer, so only
+     * it and its ancestors are hovered, and a clone can only drop its own
+     * hover. Rules that depend on an ancestor's hover make this return true
+     * without the clone showing a difference, which is wasted work but
+     * never a wrong result. When a sheet can't be read, assume a rule might.
      */
-    function getNormalStyles(el) {
+    function hoverMayApply(el) {
+        const root = el.getRootNode();
+
+        const sheets = [
+            ...(root.styleSheets || []),
+            ...(root.adoptedStyleSheets || [])
+        ];
+
+        for (const sheet of sheets) {
+            const selectors = hoverSelectors(sheet);
+
+            if (!selectors) {
+                return true;
+            }
+
+            for (const selector of selectors) {
+                const hovered = matchesSafely(el, selector.replace(/:hover\b/g, ":is(*)"));
+                const normal = matchesSafely(el, selector.replace(/:hover\b/g, ":not(*)"));
+
+                if (hovered === null || normal === null || hovered !== normal) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /*
+     * A deep clone with the parts that would act on the page disabled.
+     * While connected, an iframe would load its page, autoplaying media
+     * would start fetching, and a checked radio would uncheck the original
+     * in its group. Custom elements in the clone still run their
+     * constructors and lifecycle callbacks.
+     */
+    function inertClone(el) {
         const clone = el.cloneNode(true);
+
+        for (const node of [clone, ...clone.querySelectorAll("*")]) {
+            if (node instanceof HTMLIFrameElement) {
+                node.removeAttribute("src");
+                node.removeAttribute("srcdoc");
+            } else if (node instanceof HTMLObjectElement) {
+                node.removeAttribute("data");
+            } else if (node instanceof HTMLEmbedElement) {
+                node.removeAttribute("src");
+            } else if (node instanceof HTMLMediaElement) {
+                node.removeAttribute("autoplay");
+                node.preload = "none";
+            } else if (node instanceof HTMLInputElement && node.type === "radio") {
+                node.removeAttribute("name");
+            }
+        }
 
         Object.assign(clone.style, {
             visibility: "hidden",
             pointerEvents: "none"
         });
 
-        el.after(clone);
+        return clone;
+    }
+
+    // `place` is "before" or "after" the original. The clone has no layout
+    // overrides, so position, display and size come out as the page styles
+    // them. It's removed before the next paint, so the page never visibly
+    // shifts.
+    function getCloneStyles(el, place) {
+        const clone = inertClone(el);
+
+        el[place](clone);
 
         const styles = getStyles(clone);
 
         clone.remove();
 
         return styles;
+    }
+
+    /*
+     * Get approximately the non-hovered state by cloning the element.
+     *
+     * A freshly inserted clone isn't in the pointer's hover chain, so
+     * :hover does not apply to it. When no :hover rule could apply, the
+     * normal state is the hovered one and no clone is made.
+     *
+     * The clone is a sibling, so structural selectors can match it
+     * differently. Placed before the original, it keeps the original's
+     * :nth-child, :first-child, + and ~ matches, but not :last-child or
+     * :nth-last-child. So when values differ, they're measured again with
+     * the clone after the original. A difference that depends on where the
+     * clone sits comes from structure rather than hover, so it's dropped.
+     *
+     * `hover` must be measured before any clone is inserted, since the
+     * clone also changes the original's structural matches.
+     */
+    function getNormalStyles(el, hover) {
+        if (!hoverMayApply(el)) {
+            return hover;
+        }
+
+        const normal = getCloneStyles(el, "before");
+
+        const changed = Object.keys(normal).filter(
+            property => normal[property] !== hover[property]
+        );
+
+        if (!changed.length) {
+            return normal;
+        }
+
+        const after = getCloneStyles(el, "after");
+
+        for (const property of changed) {
+            if (after[property] !== normal[property]) {
+                normal[property] = hover[property];
+            }
+        }
+
+        return normal;
     }
 
     function collapseBorderColors(styles) {
