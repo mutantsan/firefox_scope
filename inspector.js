@@ -113,10 +113,61 @@
     const copyAllButton = document.createElement("button");
 
     copyAllButton.type = "button";
-    copyAllButton.textContent = "Copy all";
+    copyAllButton.title = "Copy all";
+    copyAllButton.setAttribute("aria-label", "Copy all");
+
+    // Two overlapping sheets, built with DOM calls rather than innerHTML.
+    // SVG presentation attributes lose to any page CSS (e.g. a site-wide
+    // `svg { fill: currentColor }`), so paint is set as !important styles.
+    const svgNS = "http://www.w3.org/2000/svg";
+
+    function forceStyles(el, styles) {
+        for (const [name, value] of Object.entries(styles)) {
+            el.style.setProperty(name, value, "important");
+        }
+    }
+
+    const copyIcon = document.createElementNS(svgNS, "svg");
+
+    copyIcon.setAttribute("viewBox", "0 0 24 24");
+
+    forceStyles(copyIcon, {
+        display: "block",
+        width: "14px",
+        height: "14px",
+        color: "#eee"
+    });
+
+    const front = document.createElementNS(svgNS, "rect");
+
+    for (const [name, value] of Object.entries({
+        x: "9", y: "9", width: "13", height: "13", rx: "2"
+    })) {
+        front.setAttribute(name, value);
+    }
+
+    const back = document.createElementNS(svgNS, "path");
+
+    back.setAttribute(
+        "d",
+        "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+    );
+
+    for (const shape of [front, back]) {
+        forceStyles(shape, {
+            fill: "none",
+            stroke: "#eee",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round"
+        });
+    }
+
+    copyIcon.append(front, back);
+    copyAllButton.append(copyIcon);
 
     Object.assign(copyAllButton.style, {
-        padding: "1px 8px",
+        padding: "3px 5px",
 
         background: "#222",
         color: "#eee",
@@ -137,8 +188,23 @@
 
     pinBar.append(pinStatus, copyAllButton);
 
+    // Takes the pin bar's place until the tooltip is pinned. Shift is
+    // already held at this point, so a plain click is all that's left.
+    const pinTip = document.createElement("div");
+
+    pinTip.textContent = "Click to pin";
+
+    Object.assign(pinTip.style, {
+        marginBottom: "6px",
+        paddingBottom: "6px",
+        borderBottom: "1px solid #333",
+
+        color: "#888"
+    });
+
     function pin() {
         pinned = true;
+        pinTip.style.display = "none";
 
         Object.assign(tooltip.style, {
             pointerEvents: "auto",
@@ -269,6 +335,7 @@
         });
 
         pinBar.style.display = "none";
+        pinTip.style.display = "";
 
         inspectedElement = null;
         tooltip.style.display = "none";
@@ -539,7 +606,7 @@
 
         currentRows = rows;
 
-        tooltip.replaceChildren(pinBar, ...lines);
+        tooltip.replaceChildren(pinBar, pinTip, ...lines);
 
         tooltip.style.display = "block";
 
@@ -614,8 +681,48 @@
     );
 
     // -------------------------------------------------------------------------
-    // Keyboard: Shift inspects, Shift+Alt pins
+    // Keyboard: Shift inspects
     // -------------------------------------------------------------------------
+
+    // Input types that don't take typed text, so Shift there isn't typing.
+    const nonTextInputs = new Set([
+        "button", "checkbox", "color", "file", "image",
+        "radio", "range", "reset", "submit"
+    ]);
+
+    function isEditable(target) {
+        if (!(target instanceof Element)) {
+            return false;
+        }
+
+        if (target instanceof HTMLInputElement) {
+            return !nonTextInputs.has(target.type);
+        }
+
+        return (
+            target instanceof HTMLTextAreaElement ||
+            target.isContentEditable
+        );
+    }
+
+    // Holding Shift alone in a text field for a moment looks like an attempt
+    // to inspect rather than typing, so explain why nothing happens.
+    const editableHintDelay = 600;
+    let editableHintTimer = null;
+
+    function cancelEditableHint() {
+        clearTimeout(editableHintTimer);
+        editableHintTimer = null;
+    }
+
+    function showEditableHint() {
+        editableHintTimer = null;
+
+        tooltip.textContent =
+            "Scope is paused while typing. Click outside the field to inspect.";
+        tooltip.style.display = "block";
+        positionTooltip();
+    }
 
     document.addEventListener(
         "keydown",
@@ -638,21 +745,16 @@
                 return;
             }
 
-            // Either key order works: Shift then Alt, or Alt then Shift.
-            const pinCombo =
-                (event.key === "Alt" && event.shiftKey) ||
-                (event.key === "Shift" && event.altKey);
-
-            if (pinCombo) {
-                shiftPressed = true;
-
-                if (!inspectedElement && hoveredElement) {
-                    inspectElement(hoveredElement);
-                }
-
-                if (inspectedElement) {
-                    event.preventDefault();
-                    pin();
+            // Shift is part of normal typing, so don't inspect while a text
+            // field has focus. composedPath() reaches into shadow DOM.
+            if (isEditable(event.composedPath()[0])) {
+                if (event.key !== "Shift") {
+                    cancelEditableHint();
+                } else if (!editableHintTimer && !event.repeat) {
+                    editableHintTimer = setTimeout(
+                        showEditableHint,
+                        editableHintDelay
+                    );
                 }
 
                 return;
@@ -677,15 +779,11 @@
     document.addEventListener(
         "keyup",
         event => {
-            // Stop Firefox from toggling the menu bar when Alt is released.
-            if (event.key === "Alt" && pinned) {
-                event.preventDefault();
-            }
-
             if (event.key !== "Shift") {
                 return;
             }
 
+            cancelEditableHint();
             shiftPressed = false;
 
             if (!pinned) {
@@ -696,13 +794,28 @@
     );
 
     // -------------------------------------------------------------------------
-    // Click outside closes a pinned tooltip
+    // Shift+click pins, click outside closes a pinned tooltip
     // -------------------------------------------------------------------------
 
-    // The closing click is swallowed so it doesn't also hit the page.
+    // Both clicks are swallowed so they don't also hit the page, e.g. a
+    // Shift+click opening a link in a new window.
     window.addEventListener(
         "mousedown",
         event => {
+            if (
+                !pinned &&
+                shiftPressed &&
+                inspectedElement &&
+                event.button === 0
+            ) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                swallowNextClick = true;
+                pin();
+                return;
+            }
+
             if (!pinned || tooltip.contains(event.target)) {
                 return;
             }
@@ -739,6 +852,7 @@
     // Prevent the tooltip from getting stuck if the window loses focus
     // while Shift is held. A pinned tooltip is meant to stay, so keep it.
     window.addEventListener("blur", () => {
+        cancelEditableHint();
         shiftPressed = false;
 
         if (!pinned) {

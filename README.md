@@ -8,11 +8,18 @@ Hover over an element and hold **Shift**. A tooltip shows the element's key
 computed styles, and a blue focus border marks the element being inspected.
 Release Shift to dismiss it.
 
-To copy values, press **Shift+Alt** to pin the tooltip in place. Then:
+Shift is ignored while a text field has focus (inputs, textareas and rich-text
+editors), so typing capitals doesn't open the tooltip. Holding Shift on its own
+in a field shows a short hint instead. Click outside the field first to
+inspect.
+
+To copy values, click while holding **Shift** to pin the tooltip in place. The
+click doesn't reach the page, so it won't follow links. Then:
 
 - click a value to copy it, e.g. `#4a7ab8`
 - click a property name to copy the declaration, e.g. `color: #4a7ab8;`
-- click **Copy all** to copy every row as CSS declarations
+- click the copy icon in the top-right corner to copy every row as CSS
+  declarations
 - drag to select any text as usual
 
 Press **Esc**, press **Shift**, or click anywhere outside the tooltip to close
