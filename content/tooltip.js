@@ -4,36 +4,104 @@
     "use strict";
 
     let pinned = false;
-    let faded = false;
 
     // CSS declarations copied by the "Copy all" button.
     let copyAllText = "";
 
+    // Only a pinned tooltip takes the pointer, unless it's faded, see
+    // fade().
+    Scope.ui.addStyles(`
+        .tooltip {
+            position: fixed;
+            z-index: 2147483647;
+            display: none;
+
+            padding: 10px 12px;
+            max-width: min(1200px, calc(100vw - 32px));
+
+            background: #111;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: 6px;
+
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.6;
+
+            white-space: pre;
+            pointer-events: none;
+            transition: opacity 0.15s;
+
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        .tooltip.pinned {
+            user-select: text;
+            border-color: #3b9eff;
+        }
+
+        .tooltip.pinned:not(.faded) {
+            pointer-events: auto;
+        }
+
+        .tooltip.faded {
+            opacity: 0.25;
+        }
+
+        .pin-bar,
+        .pin-tip {
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #333;
+
+            color: #888;
+        }
+
+        .pin-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .tooltip:not(.pinned) .pin-bar,
+        .tooltip.pinned .pin-tip {
+            display: none;
+        }
+
+        .pin-status.flash {
+            color: #3b9eff;
+        }
+
+        .copy-all {
+            padding: 3px 5px;
+
+            background: #222;
+            color: #eee;
+            border: 1px solid #555;
+            border-radius: 4px;
+
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .copy-all svg {
+            display: block;
+        }
+
+        .copy-buffer {
+            position: fixed;
+            opacity: 0;
+        }
+
+        .copyable {
+            cursor: pointer;
+        }
+    `);
+
     const tooltip = document.createElement("div");
 
-    Object.assign(tooltip.style, {
-        position: "fixed",
-        zIndex: "2147483647",
-        display: "none",
-
-        padding: "10px 12px",
-        maxWidth: "min(1200px, calc(100vw - 32px))",
-
-        background: "#111",
-        color: "#eee",
-        border: "1px solid #555",
-        borderRadius: "6px",
-
-        fontFamily: "monospace",
-        fontSize: "12px",
-        lineHeight: "1.6",
-
-        whiteSpace: "pre",
-        pointerEvents: "none",
-        transition: "opacity 0.15s",
-
-        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.35)"
-    });
+    tooltip.className = "tooltip";
 
     Scope.ui.root.append(tooltip);
 
@@ -58,25 +126,16 @@
 
     const pinBar = document.createElement("div");
 
-    Object.assign(pinBar.style, {
-        display: "none",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: "16px",
-
-        marginBottom: "6px",
-        paddingBottom: "6px",
-        borderBottom: "1px solid #333",
-
-        color: "#888"
-    });
+    pinBar.className = "pin-bar";
 
     const pinStatus = document.createElement("span");
 
+    pinStatus.className = "pin-status";
     pinStatus.textContent = pinHint;
 
     const copyAllButton = document.createElement("button");
 
+    copyAllButton.className = "copy-all";
     copyAllButton.type = "button";
     copyAllButton.title = "Copy all";
     copyAllButton.setAttribute("aria-label", "Copy all");
@@ -105,8 +164,6 @@
         "stroke-linejoin": "round"
     });
 
-    copyIcon.style.display = "block";
-
     const front = document.createElementNS(svgNS, "rect");
 
     setAttributes(front, {
@@ -123,18 +180,6 @@
     copyIcon.append(front, back);
     copyAllButton.append(copyIcon);
 
-    Object.assign(copyAllButton.style, {
-        padding: "3px 5px",
-
-        background: "#222",
-        color: "#eee",
-        border: "1px solid #555",
-        borderRadius: "4px",
-
-        font: "inherit",
-        cursor: "pointer"
-    });
-
     copyAllButton.addEventListener("click", () => {
         copyText(copyAllText, "Copied all styles");
     });
@@ -145,41 +190,17 @@
     // already held at this point, so a plain click is all that's left.
     const pinTip = document.createElement("div");
 
+    pinTip.className = "pin-tip";
     pinTip.textContent = "Click to pin";
-
-    Object.assign(pinTip.style, {
-        marginBottom: "6px",
-        paddingBottom: "6px",
-        borderBottom: "1px solid #333",
-
-        color: "#888"
-    });
 
     function pin() {
         pinned = true;
-        pinTip.style.display = "none";
-
-        Object.assign(tooltip.style, {
-            pointerEvents: faded ? "none" : "auto",
-            userSelect: "text",
-            borderColor: "#3b9eff"
-        });
-
-        pinBar.style.display = "flex";
+        tooltip.classList.add("pinned");
     }
 
     function hide() {
         pinned = false;
-
-        Object.assign(tooltip.style, {
-            pointerEvents: "none",
-            userSelect: "",
-            borderColor: "#555"
-        });
-
-        pinBar.style.display = "none";
-        pinTip.style.display = "";
-
+        tooltip.classList.remove("pinned");
         tooltip.style.display = "none";
     }
 
@@ -191,13 +212,13 @@
 
     function flashStatus(message) {
         pinStatus.textContent = message;
-        pinStatus.style.color = "#3b9eff";
+        pinStatus.classList.add("flash");
 
         clearTimeout(statusTimer);
 
         statusTimer = setTimeout(() => {
             pinStatus.textContent = pinHint;
-            pinStatus.style.color = "";
+            pinStatus.classList.remove("flash");
         }, 1200);
     }
 
@@ -209,12 +230,8 @@
             // back to a hidden textarea. Still inside the click, so allowed.
             const textarea = document.createElement("textarea");
 
+            textarea.className = "copy-buffer";
             textarea.value = text;
-
-            Object.assign(textarea.style, {
-                position: "fixed",
-                opacity: "0"
-            });
 
             tooltip.append(textarea);
             textarea.select();
@@ -235,7 +252,7 @@
     // Clicking copies, unless the click ended a drag-selection of text.
     function makeCopyable(node, text) {
         node.title = "Click to copy";
-        node.style.cursor = "pointer";
+        node.classList.add("copyable");
 
         node.addEventListener("click", () => {
             if (!pinned || String(window.getSelection())) {
@@ -286,12 +303,7 @@
     // Faded while measuring, so the lines under it show through. It lets
     // the pointer through too, to measure to elements beneath it.
     function fade(value) {
-        faded = value;
-
-        Object.assign(tooltip.style, {
-            opacity: faded ? "0.25" : "",
-            pointerEvents: pinned && !faded ? "auto" : "none"
-        });
+        tooltip.classList.toggle("faded", value);
     }
 
     // Shows `nodes` below the pin bar, next to the pointer.

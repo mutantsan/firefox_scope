@@ -470,6 +470,24 @@
         return size >= 24 || (size >= 18.66 && Number(computed.fontWeight) >= 700);
     }
 
+    function contrastRatio(a, b) {
+        const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+
+        return (light + 0.05) / (dark + 0.05);
+    }
+
+    // E.g. "4.52:1  AA ✓  AAA ✗".
+    function rateContrast(ratio, large) {
+        // Truncated, not rounded, so 4.499 never displays as passing 4.5.
+        const shown = Math.floor(ratio * 100) / 100;
+        const mark = min => (ratio >= min ? "✓" : "✗");
+
+        return (
+            `${shown}:1  AA ${mark(large ? 3 : 4.5)}  AAA ${mark(large ? 4.5 : 7)}` +
+            (large ? "  large text" : "")
+        );
+    }
+
     // `behind` comes from elementsBehind(). When `el` is a clone, it is found
     // from the original before the clone is inserted and moves it.
     function contrastSummary(el, computed, behind) {
@@ -485,21 +503,9 @@
             return "unknown (image behind text)";
         }
 
-        const [light, dark] = [
-            luminance(text.rgb),
-            luminance(background.rgb)
-        ].sort((a, b) => b - a);
-
-        const ratio = (light + 0.05) / (dark + 0.05);
-        const large = isLargeText(computed);
-
-        // Truncated, not rounded, so 4.499 never displays as passing 4.5.
-        const shown = Math.floor(ratio * 100) / 100;
-        const mark = min => (ratio >= min ? "✓" : "✗");
-
-        return (
-            `${shown}:1  AA ${mark(large ? 3 : 4.5)}  AAA ${mark(large ? 4.5 : 7)}` +
-            (large ? "  large text" : "")
+        return rateContrast(
+            contrastRatio(text.rgb, background.rgb),
+            isLargeText(computed)
         );
     }
 
@@ -509,6 +515,9 @@
         findColor,
         parseColor,
         luminance,
+        contrastRatio,
+        rateContrast,
+        isLargeText,
         elementsBehind,
         contrastSummary
     };

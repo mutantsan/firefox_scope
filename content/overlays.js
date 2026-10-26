@@ -15,78 +15,82 @@
      * element's own widths: the margin overlay surrounds the border box, the
      * highlight's border covers the element's border, and an inner overlay's
      * border covers the padding, with the content as its background.
+     *
+     * Dashed guides run along the border box's edges, spanning the
+     * viewport, like DevTools' highlighter.
      */
-    const marginOverlay = document.createElement("div");
+    Scope.ui.addStyles(`
+        .margin-overlay,
+        .highlight,
+        .guide {
+            position: fixed;
+            z-index: 2147483646;
+            display: none;
+            pointer-events: none;
+        }
 
-    Object.assign(marginOverlay.style, {
-        position: "fixed",
-        zIndex: "2147483646",
-        display: "none",
+        .margin-overlay {
+            box-sizing: content-box;
+            border-style: solid;
+            border-color: rgba(237, 255, 100, 0.6);
+        }
 
-        boxSizing: "content-box",
-        borderStyle: "solid",
-        borderColor: "rgba(237, 255, 100, 0.6)",
+        .highlight {
+            box-sizing: border-box;
+            border-style: solid;
+            border-color: rgba(68, 68, 68, 0.6);
+        }
 
-        pointerEvents: "none"
-    });
+        .padding-overlay {
+            position: absolute;
+            inset: 0;
 
-    const highlight = document.createElement("div");
+            box-sizing: border-box;
+            border-style: solid;
+            border-color: rgba(106, 90, 205, 0.6);
+            background: rgba(137, 206, 235, 0.6);
+            background-clip: padding-box;
+        }
 
-    Object.assign(highlight.style, {
-        position: "fixed",
-        zIndex: "2147483646",
-        display: "none",
+        .guide.horizontal {
+            left: 0;
+            width: 100%;
+            height: 0;
+            border-top: 1px dashed #0099cc;
+        }
 
-        boxSizing: "border-box",
-        borderStyle: "solid",
-        borderColor: "rgba(68, 68, 68, 0.6)",
+        .guide.vertical {
+            top: 0;
+            width: 0;
+            height: 100%;
+            border-left: 1px dashed #0099cc;
+        }
+    `);
 
-        pointerEvents: "none"
-    });
+    function overlay(className) {
+        const el = document.createElement("div");
 
-    const paddingOverlay = document.createElement("div");
+        el.className = className;
 
-    Object.assign(paddingOverlay.style, {
-        position: "absolute",
-        inset: "0",
+        return el;
+    }
 
-        boxSizing: "border-box",
-        borderStyle: "solid",
-        borderColor: "rgba(106, 90, 205, 0.6)",
-        background: "rgba(137, 206, 235, 0.6)",
-        backgroundClip: "padding-box"
-    });
+    const marginOverlay = overlay("margin-overlay");
+    const highlight = overlay("highlight");
+    const paddingOverlay = overlay("padding-overlay");
 
     highlight.append(paddingOverlay);
 
-    // Dashed guides along the border box's edges, spanning the viewport,
-    // like DevTools' highlighter: top, right, bottom, left.
-    const guides = [0, 1, 2, 3].map(i => {
-        const guide = document.createElement("div");
-        const horizontal = i % 2 === 0;
-
-        Object.assign(guide.style, {
-            position: "fixed",
-            zIndex: "2147483646",
-            display: "none",
-
-            left: horizontal ? "0" : "",
-            top: horizontal ? "" : "0",
-            width: horizontal ? "100%" : "0",
-            height: horizontal ? "0" : "100%",
-            [horizontal ? "borderTop" : "borderLeft"]: "1px dashed #0099cc",
-
-            pointerEvents: "none"
-        });
-
-        return guide;
-    });
+    // Top, right, bottom, left.
+    const guides = ["horizontal", "vertical", "horizontal", "vertical"].map(
+        direction => overlay("guide " + direction)
+    );
 
     Scope.ui.root.append(marginOverlay, highlight, ...guides);
 
     function setDisplay(display) {
-        for (const overlay of [marginOverlay, highlight, ...guides]) {
-            overlay.style.display = display;
+        for (const el of [marginOverlay, highlight, ...guides]) {
+            el.style.display = display;
         }
     }
 

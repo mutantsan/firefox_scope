@@ -19,5 +19,18 @@
 
     document.documentElement.append(host);
 
-    Scope.ui = { host, root };
+    /*
+     * Adds a module's rules to the shadow root. The text is set before the
+     * element is inserted: Firefox then treats it as the content script's
+     * styling and exempts it from the page's CSP, which it doesn't for a
+     * <style> filled in after insertion (bug 1706787).
+     */
+    function addStyles(css) {
+        const style = document.createElement("style");
+
+        style.textContent = css;
+        root.append(style);
+    }
+
+    Scope.ui = { host, root, addStyles };
 })(globalThis.Scope ??= {});

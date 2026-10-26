@@ -10,67 +10,57 @@
 (function (Scope) {
     "use strict";
 
-    const color = "#f24822";
-
     // The most lines one measurement needs: matching edges on both axes.
     const maxLines = 4;
 
     let from = null;
     let to = null;
 
-    const target = document.createElement("div");
+    Scope.ui.addStyles(`
+        .measure-target,
+        .measure-line,
+        .measure-label {
+            position: fixed;
+            z-index: 2147483646;
+            display: none;
+            pointer-events: none;
+        }
 
-    Object.assign(target.style, {
-        position: "fixed",
-        zIndex: "2147483646",
-        display: "none",
+        .measure-target {
+            box-sizing: border-box;
+            border: 1px solid #f24822;
+        }
 
-        boxSizing: "border-box",
-        border: `1px solid ${color}`,
+        .measure-line {
+            background: #f24822;
+        }
 
-        pointerEvents: "none"
-    });
+        .measure-label {
+            padding: 0 4px;
 
-    const lines = [];
-    const labels = [];
+            background: #f24822;
+            color: #fff;
+            border-radius: 3px;
 
-    for (let i = 0; i < maxLines; i++) {
-        const line = document.createElement("div");
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 16px;
 
-        Object.assign(line.style, {
-            position: "fixed",
-            zIndex: "2147483646",
-            display: "none",
+            white-space: nowrap;
+        }
+    `);
 
-            background: color,
+    function part(className) {
+        const el = document.createElement("div");
 
-            pointerEvents: "none"
-        });
+        el.className = className;
 
-        const label = document.createElement("div");
-
-        Object.assign(label.style, {
-            position: "fixed",
-            zIndex: "2147483646",
-            display: "none",
-
-            padding: "0 4px",
-
-            background: color,
-            color: "#fff",
-            borderRadius: "3px",
-
-            fontFamily: "monospace",
-            fontSize: "11px",
-            lineHeight: "16px",
-
-            whiteSpace: "nowrap",
-            pointerEvents: "none"
-        });
-
-        lines.push(line);
-        labels.push(label);
+        return el;
     }
+
+    const target = part("measure-target");
+    const lines = Array.from({ length: maxLines }, () => part("measure-line"));
+    const labels = Array.from({ length: maxLines }, () => part("measure-label"));
 
     Scope.ui.root.append(target, ...lines, ...labels);
 

@@ -10,6 +10,130 @@
     const { boxLayers, boxSides } = Scope.styles;
     const { makeCopyable } = Scope.tooltip;
 
+    /*
+     * Each box model layer sets --tint, --fill and --line from boxLayers,
+     * which its own name and border use. Nested layers set their own, so a
+     * name never picks up an outer layer's tint.
+     */
+    Scope.ui.addStyles(`
+        .swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-left: 5px;
+            border: 1px solid #888;
+            border-radius: 2px;
+            vertical-align: -1px;
+        }
+
+        .pass {
+            color: #93c47d;
+        }
+
+        .fail {
+            color: #e06666;
+        }
+
+        .arrow {
+            color: #888;
+        }
+
+        .section,
+        .diagram {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #333;
+        }
+
+        .chip {
+            padding: 0 4px;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 3px;
+            color: #f0f0f0;
+        }
+
+        .attribute {
+            display: flex;
+            gap: 2ch;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .zero {
+            color: #777;
+        }
+
+        .layer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            margin: 0;
+            padding: 0 6px;
+            min-width: 0;
+
+            border: var(--line) var(--tint);
+            border-radius: 3px;
+            background: var(--fill);
+
+            line-height: 1.5;
+            white-space: nowrap;
+        }
+
+        /* Label on the left, value centered: equal 1fr columns either side
+           keep the value centered without the two overlapping. */
+        .layer-top {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 6px;
+            align-self: stretch;
+        }
+
+        .layer-name {
+            justify-self: start;
+            color: var(--tint);
+            font-size: 10px;
+        }
+
+        .layer-middle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .content-box {
+            margin: 4px 0;
+            padding: 2px 8px;
+
+            border: 1px solid #89ceeb;
+            border-radius: 3px;
+            background: #1c2f3a;
+
+            white-space: nowrap;
+        }
+
+        .diagram {
+            display: flex;
+            justify-content: center;
+            font-size: 11px;
+        }
+    `);
+
+    function element(tag, className) {
+        const el = document.createElement(tag);
+
+        el.className = className;
+
+        return el;
+    }
+
     // -------------------------------------------------------------------------
     // Values
     // -------------------------------------------------------------------------
@@ -21,18 +145,9 @@
             return null;
         }
 
-        const swatch = document.createElement("span");
+        const swatch = element("span", "swatch");
 
-        Object.assign(swatch.style, {
-            display: "inline-block",
-            width: "10px",
-            height: "10px",
-            marginLeft: "5px",
-            border: "1px solid #888",
-            borderRadius: "2px",
-            background: color,
-            verticalAlign: "-1px"
-        });
+        swatch.style.background = color;
 
         return swatch;
     }
@@ -58,10 +173,9 @@
 
         for (const part of text.split(/([✓✗])/)) {
             if (part === "✓" || part === "✗") {
-                const mark = document.createElement("span");
+                const mark = element("span", part === "✓" ? "pass" : "fail");
 
                 mark.textContent = part;
-                mark.style.color = part === "✓" ? "#93c47d" : "#e06666";
                 node.append(mark);
             } else {
                 node.append(part);
@@ -84,9 +198,8 @@
         line.append(name, "  ", render(normalValue));
 
         if (normalValue !== hoverValue) {
-            const arrow = document.createElement("span");
+            const arrow = element("span", "arrow");
 
-            arrow.style.color = "#888";
             arrow.textContent = "→";
 
             line.append("  ", arrow, "  ", render(hoverValue));
@@ -97,15 +210,7 @@
 
     // A tooltip section below the CSS rows, set off by a divider line.
     function section() {
-        const node = document.createElement("div");
-
-        Object.assign(node.style, {
-            marginTop: "8px",
-            paddingTop: "8px",
-            borderTop: "1px solid #333"
-        });
-
-        return node;
+        return element("div", "section");
     }
 
     // -------------------------------------------------------------------------
@@ -115,18 +220,10 @@
     // Shown like Markdown inline code, so each name stands out from its
     // neighbours. Clicking one copies just that name.
     function codeChip(text) {
-        const chip = document.createElement("span");
+        const chip = element("span", "chip");
 
         chip.textContent = text;
         makeCopyable(chip, text);
-
-        Object.assign(chip.style, {
-            padding: "0 4px",
-            background: "#2a2a2a",
-            border: "1px solid #3a3a3a",
-            borderRadius: "3px",
-            color: "#f0f0f0"
-        });
 
         return chip;
     }
@@ -148,26 +245,13 @@
         const nameWidth = Math.max(...found.map(([name]) => name.length));
 
         for (const [name, text] of found) {
-            const line = document.createElement("div");
-
-            Object.assign(line.style, {
-                display: "flex",
-                gap: "2ch"
-            });
+            const line = element("div", "attribute");
 
             const label = document.createElement("span");
 
             label.textContent = name.padEnd(nameWidth);
 
-            const chips = document.createElement("span");
-
-            Object.assign(chips.style, {
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "4px",
-                minWidth: "0",
-                overflowWrap: "anywhere"
-            });
+            const chips = element("span", "chips");
 
             chips.append(...text.split(/\s+/).map(codeChip));
 
@@ -197,62 +281,28 @@
         if (rounded !== 0) {
             makeCopyable(node, rounded + "px");
         } else {
-            node.style.color = "#777";
+            node.className = "zero";
         }
 
         return node;
     }
 
     function boxLayer({ name: label, tint, fill, line }, sides, inner) {
-        const layer = document.createElement("div");
+        const layer = element("div", "layer");
 
-        Object.assign(layer.style, {
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
+        layer.style.setProperty("--tint", tint);
+        layer.style.setProperty("--fill", fill);
+        layer.style.setProperty("--line", line);
 
-            margin: "0",
-            padding: "0 6px",
-            minWidth: "0",
-
-            border: `${line} ${tint}`,
-            borderRadius: "3px",
-            background: fill,
-
-            lineHeight: "1.5",
-            whiteSpace: "nowrap"
-        });
-
-        const name = document.createElement("span");
+        const name = element("span", "layer-name");
 
         name.textContent = label;
 
-        Object.assign(name.style, {
-            justifySelf: "start",
-            color: tint,
-            fontSize: "10px"
-        });
-
-        // Label on the left, value centered: equal 1fr columns either side
-        // keep the value centered without the two overlapping.
-        const top = document.createElement("div");
-
-        Object.assign(top.style, {
-            display: "grid",
-            gridTemplateColumns: "1fr auto 1fr",
-            gap: "6px",
-            alignSelf: "stretch"
-        });
+        const top = element("div", "layer-top");
 
         top.append(name, boxValue(sides[0]), document.createElement("span"));
 
-        const middle = document.createElement("div");
-
-        Object.assign(middle.style, {
-            display: "flex",
-            alignItems: "center",
-            gap: "6px"
-        });
+        const middle = element("div", "layer-middle");
 
         middle.append(boxValue(sides[3]), inner, boxValue(sides[1]));
         layer.append(top, middle, boxValue(sides[2]));
@@ -287,21 +337,10 @@
         );
 
         const contentSize = `${round(contentWidth)} × ${round(contentHeight)}`;
-        const content = document.createElement("div");
+        const content = element("div", "content-box");
 
         content.textContent = contentSize;
         makeCopyable(content, contentSize);
-
-        Object.assign(content.style, {
-            margin: "4px 0",
-            padding: "2px 8px",
-
-            border: "1px solid #89ceeb",
-            borderRadius: "3px",
-            background: "#1c2f3a",
-
-            whiteSpace: "nowrap"
-        });
 
         let box = content;
 
@@ -309,18 +348,7 @@
             box = boxLayer(boxLayers[i], layers[i], box);
         }
 
-        const diagram = document.createElement("div");
-
-        Object.assign(diagram.style, {
-            display: "flex",
-            justifyContent: "center",
-
-            marginTop: "8px",
-            paddingTop: "8px",
-            borderTop: "1px solid #333",
-
-            fontSize: "11px"
-        });
+        const diagram = element("div", "diagram");
 
         diagram.append(box);
 

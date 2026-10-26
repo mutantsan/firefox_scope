@@ -1,0 +1,15 @@
+{
+  "name": "scope",
+  "private": true,
+  "description": "Hover over an element and press Shift to inspect its CSS styles.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "lint": "web-ext lint",
+    "build": "web-ext build --overwrite-dest",
+    "start": "web-ext run"
+  },
+  "devDependencies": {
+    "web-ext": "^10.8.0"
+  }
+}
