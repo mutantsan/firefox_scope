@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Scope",
+  "version": "2.2.0",
+  "description": "Hover over an element and press Shift to inspect its CSS styles.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_title": "Scope",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "scope@mutantsan",
+      "strict_min_version": "128.0"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": ["inspector.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
