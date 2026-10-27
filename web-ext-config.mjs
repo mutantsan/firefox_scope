@@ -6,6 +6,7 @@ export default {
         "AUDIT.md",
         "background/worker.js",
         "dist",
+        "e2e",
         "image.png",
         "icons/icon.svg",
         "web-ext-config.mjs",

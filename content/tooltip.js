@@ -208,6 +208,9 @@
 
     tooltip.className = "tooltip";
 
+    // Hidden inline too, as isVisible() reads the inline style.
+    tooltip.style.display = "none";
+
     Scope.ui.root.append(tooltip);
 
     // Clicks inside a pinned tooltip must not reach the page, or clicking a

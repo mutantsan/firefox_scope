@@ -67,8 +67,7 @@
             .catch(error => console.error("Scope:", error));
     }
 
-    // Firefox for Android has no keyboard shortcuts.
-    browser.commands?.onCommand.addListener(async command => {
+    async function onCommand(command) {
         if (command !== "start") {
             return;
         }
@@ -89,5 +88,11 @@
         } catch {
             // Pages extensions can't run on, such as about: pages.
         }
-    });
+    }
+
+    // Firefox for Android has no keyboard shortcuts.
+    browser.commands?.onCommand.addListener(onCommand);
+
+    // Lets the browser tests press the shortcut, which they can't send.
+    Scope.background = { onCommand };
 })(globalThis.Scope ??= {});

@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Scope fixture</title>
+<style>
+    body { font: 16px sans-serif; padding: 40px; }
+    .cta { padding: 12px 24px; color: #fff; background: #0b57d0; border: 0; }
+</style>
+
+<button class="cta" aria-label="Buy now">Buy</button>
+
+<p><input id="field" placeholder="Type here"></p>
+
+<!-- Scope looks into shadow roots for the element under the pointer. -->
+<scope-card></scope-card>
+
+<script>
+    customElements.define("scope-card", class extends HTMLElement {
+        constructor() {
+            super();
+            this.attachShadow({ mode: "open" }).innerHTML =
+                `<a class="inner-link" href="#">Inside a shadow root</a>`;
+        }
+    });
+</script>

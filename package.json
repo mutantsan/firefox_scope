@@ -5,12 +5,14 @@
   "license": "MIT",
   "scripts": {
     "test": "node --test",
+    "test:e2e": "npm run build:chrome && node --test e2e/chrome.e2e.mjs",
     "lint": "web-ext lint",
     "build": "web-ext build --overwrite-dest",
     "build:chrome": "node scripts/build-chrome.mjs",
     "start": "web-ext run"
   },
   "devDependencies": {
+    "playwright": "^1.64.1",
     "web-ext": "^10.8.0"
   }
 }
