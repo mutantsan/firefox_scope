@@ -34,7 +34,38 @@
             browser.tabs.sendMessage(sender.tab.id, message)
                 .catch(() => {});
         }
+
+        if (message.scopeLoad && sender.tab) {
+            load(sender.tab.id, sender.frameId);
+        }
     });
+
+    /*
+     * The "always ready" loader asks for Scope on the first Shift press.
+     * Scope starts in every frame of the tab, so the one under the pointer
+     * has it too, then the frame that saw Shift passes it on. Frames can
+     * ask at the same time, so a tab loads once and each asking frame
+     * resumes after.
+     */
+    const loading = new Map();
+
+    function load(tabId, frameId) {
+        let started = loading.get(tabId);
+
+        if (!started) {
+            started = injection.start(tabId)
+                .finally(() => loading.delete(tabId));
+
+            loading.set(tabId, started);
+        }
+
+        started
+            .then(() => browser.scripting.executeScript({
+                target: { tabId, frameIds: [frameId] },
+                func: () => globalThis.Scope.inspector?.resume()
+            }))
+            .catch(error => console.error("Scope:", error));
+    }
 
     // Firefox for Android has no keyboard shortcuts.
     browser.commands?.onCommand.addListener(async command => {

@@ -1,6 +1,7 @@
 /*
- * Starts Scope in a tab on demand, or on every page once the user grants
- * access to all sites. Shared by the background script and the popup.
+ * Starts Scope in a tab on demand, or readies every page for it once the
+ * user grants access to all sites. Shared by the background script and
+ * the popup.
  */
 (function (Scope) {
     "use strict";
@@ -22,6 +23,13 @@
         "/content/tooltip.js",
         "/content/render.js",
         "/content/inspector.js"
+    ];
+
+    // What "always ready" runs on every page: only a loader, which asks
+    // the background script to start Scope on the first Shift press.
+    const loaderFiles = [
+        "/shared/browser.js",
+        "/content/loader.js"
     ];
 
     const origins = ["http://*/*", "https://*/*"];
@@ -72,11 +80,11 @@
             .map(site => `*://${site}/*`);
     }
 
-    // Registers the content scripts while the all-sites permission is
-    // granted and removes them when it isn't. The permission can also be
-    // changed in about:addons, so this follows it rather than the popup.
-    // The registration is replaced rather than updated, since an update
-    // keeps the old excluded sites when there are none left to pass.
+    // Registers the loader while the all-sites permission is granted and
+    // removes it when it isn't. The permission can also be changed in
+    // about:addons, so this follows it rather than the popup. The
+    // registration is replaced rather than updated, since an update keeps
+    // the old excluded sites when there are none left to pass.
     async function syncAlwaysReady() {
         const granted = await hasAllSites();
 
@@ -99,7 +107,7 @@
         const script = {
             id: scriptId,
             matches: origins,
-            js: files,
+            js: loaderFiles,
             allFrames: true,
             runAt: "document_idle",
             persistAcrossSessions: true

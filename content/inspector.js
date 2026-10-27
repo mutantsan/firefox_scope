@@ -11,7 +11,6 @@
     let hiddenProperties = properties.hiddenKeys();
     let storedHidden = [];
     let storedShown = [];
-    let hoveredElement = null;
     let inspectedElement = null;
     let shiftPressed = false;
     let altPressed = false;
@@ -265,21 +264,47 @@
         reinspectFrame = requestAnimationFrame(() => {
             reinspectFrame = null;
 
+            const el = hoveredElement();
+
             if (
                 shiftPressed &&
                 !altPressed &&
                 !tooltip.isPinned() &&
-                hoveredElement &&
-                hoveredElement !== inspectedElement
+                el &&
+                el !== inspectedElement
             ) {
-                inspectElement(hoveredElement);
+                inspectElement(el);
             }
         });
     }
 
-    // Moves over the tooltip arrive retargeted to the UI host, which isn't
-    // part of the page. composedPath() reaches into open shadow roots, and
-    // deepestAt() into closed ones.
+    /*
+     * Moves over the tooltip arrive retargeted to the UI host, which isn't
+     * part of the page. composedPath() reaches into open shadow roots, and
+     * deepestAt() into closed ones. That costs a hit test per shadow root,
+     * so a move only notes its target and point, and the element under
+     * them is found when something needs it.
+     */
+    let hoverTarget = null;
+    let hoverX = 0;
+    let hoverY = 0;
+    let hovered;
+
+    function setHoverTarget(target, x, y) {
+        hoverTarget = target;
+        hoverX = x;
+        hoverY = y;
+        hovered = undefined;
+    }
+
+    function hoveredElement() {
+        if (hovered === undefined) {
+            hovered = hoverTarget && tree.deepestAt(hoverTarget, hoverX, hoverY);
+        }
+
+        return hovered;
+    }
+
     document.addEventListener(
         "mousemove",
         event => {
@@ -292,13 +317,13 @@
                 target instanceof Element &&
                 target !== ui.host
             ) {
-                hoveredElement = tree.deepestAt(target, mouseX, mouseY);
+                setHoverTarget(target, mouseX, mouseY);
             }
 
             if (altPressed) {
-                measure.show(inspectedElement, hoveredElement);
+                measure.show(inspectedElement, hoveredElement());
             } else if (shiftPressed && !tooltip.isPinned()) {
-                if (hoveredElement !== inspectedElement) {
+                if (hoveredElement() !== inspectedElement) {
                     scheduleReinspect();
                 } else if (tooltip.isVisible()) {
                     tooltip.position(mouseX, mouseY);
@@ -399,7 +424,7 @@
         if (!altPressed) {
             altPressed = true;
             tooltip.fade(true);
-            measure.show(inspectedElement, hoveredElement);
+            measure.show(inspectedElement, hoveredElement());
         }
 
         return true;
@@ -526,7 +551,7 @@
                 return;
             }
 
-            hoveredElement = null;
+            setHoverTarget(null, 0, 0);
 
             if (!tooltip.isPinned() && !altPressed) {
                 hideInspector();
@@ -614,12 +639,18 @@
 
         shiftPressed = true;
 
-        if (hoveredElement) {
-            inspectElement(hoveredElement);
+        const el = hoveredElement();
+
+        if (el) {
+            inspectElement(el);
         }
     }
 
     function onKeyUp(event) {
+        if (event.key === "Shift") {
+            loaderShift = false;
+        }
+
         shareKey(event);
 
         if (event.key === "Alt" && shiftPressed) {
@@ -740,11 +771,51 @@
         cancelEditableHint();
         stopMeasuring();
         shiftPressed = false;
+        loaderShift = false;
 
         if (!tooltip.isPinned()) {
             hideInspector();
         }
     });
+
+    /*
+     * With "always ready", a loader ran here first and asked for Scope on
+     * a Shift press. Its pointer position is taken over now. Shift is
+     * picked up once the background script calls resume(), after Scope has
+     * started in every frame, so pressing it reaches the others too.
+     */
+    let loaderShift = false;
+    const handoff = Scope.loader?.stop();
+
+    if (handoff) {
+        mouseX = handoff.x;
+        mouseY = handoff.y;
+        loaderShift = handoff.shift;
+
+        if (handoff.target?.isConnected) {
+            setHoverTarget(handoff.target, handoff.x, handoff.y);
+        }
+    }
+
+    async function resume() {
+        await settingsLoaded;
+
+        // Released while Scope was loading.
+        if (!loaderShift) {
+            return;
+        }
+
+        loaderShift = false;
+
+        // Stands in for the press the loader saw.
+        onKeyDown({
+            type: "keydown",
+            key: "Shift",
+            repeat: false,
+            preventDefault() {},
+            stopPropagation() {}
+        });
+    }
 
     // Confirms that the keyboard shortcut started Scope, unless the tooltip
     // is already in use.
@@ -819,7 +890,8 @@
         }
     }
 
-    browser.storage.local
+    // resume() waits for these, so the first tooltip already has them.
+    const settingsLoaded = browser.storage.local
         .get(["disabledSites", "showDefaultValues", "hiddenProperties", "shownProperties"])
         .then(({ disabledSites, showDefaultValues, hiddenProperties, shownProperties }) => {
             applyDisabledSites(disabledSites);
@@ -849,5 +921,5 @@
     });
 
     // Its presence also tells Scope.injection that the page runs Scope.
-    Scope.inspector = { announceReady };
+    Scope.inspector = { announceReady, resume };
 })(globalThis.Scope ??= {});
