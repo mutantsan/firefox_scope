@@ -217,8 +217,11 @@
     siteLabel.title = siteName;
 
     // Opening the popup grants activeTab, which lets Scope start here.
-    injection.start(tab.id)
-        .catch(error => console.error("Scope:", error));
+    // Not on a site it's turned off for, where it would only sit idle.
+    function start() {
+        injection.start(tab.id)
+            .catch(error => console.error("Scope:", error));
+    }
 
     function showSiteState() {
         status.classList.toggle("active", enabledSwitch.checked);
@@ -234,8 +237,16 @@
     enabledSwitch.disabled = false;
     showSiteState();
 
+    if (enabledSwitch.checked) {
+        start();
+    }
+
     enabledSwitch.addEventListener("change", async () => {
         showSiteState();
+
+        if (enabledSwitch.checked) {
+            start();
+        }
 
         // Re-read so a change made in another window isn't overwritten.
         const { disabledSites = [] } =
