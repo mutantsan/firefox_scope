@@ -1,5 +1,5 @@
 // Starts Scope from the keyboard shortcut and keeps "always ready" in step
-// with the all-sites permission.
+// with the all-sites permission and the sites switched off in the popup.
 (function (Scope) {
     "use strict";
 
@@ -20,6 +20,13 @@
     browser.permissions.onAdded.addListener(sync);
     browser.permissions.onRemoved.addListener(sync);
 
+    // Sites switched off in the popup are left out of the registration.
+    browser.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.disabledSites) {
+            sync();
+        }
+    });
+
     // Key presses only reach the focused frame, so Scope in one frame sends
     // Shift and Alt here to pass them on to the tab's other frames.
     browser.runtime.onMessage.addListener((message, sender) => {
@@ -29,16 +36,8 @@
         }
     });
 
-    // DEBUG: remove once the shortcut is confirmed working.
-    console.log("[Scope] background loaded");
-    browser.commands?.getAll().then(commands =>
-        console.log("[Scope] shortcuts:", JSON.stringify(commands))
-    );
-
     // Firefox for Android has no keyboard shortcuts.
     browser.commands?.onCommand.addListener(async command => {
-        console.log("[Scope] command received:", command);
-
         if (command !== "start") {
             return;
         }
@@ -48,21 +47,16 @@
             currentWindow: true
         });
 
-        console.log("[Scope] active tab:", tab.id, tab.url);
-
         try {
             await injection.start(tab.id);
-            console.log("[Scope] started in tab", tab.id);
 
             // The shortcut has no other visible effect.
             await browser.scripting.executeScript({
                 target: { tabId: tab.id },
                 func: () => globalThis.Scope.inspector.announceReady()
             });
-            console.log("[Scope] ready message shown");
-        } catch (error) {
+        } catch {
             // Pages extensions can't run on, such as about: pages.
-            console.error("[Scope] start failed:", error);
         }
     });
 })(globalThis.Scope ??= {});

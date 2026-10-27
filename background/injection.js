@@ -56,10 +56,27 @@
         return browser.permissions.contains({ origins });
     }
 
+    /*
+     * Match patterns for the sites switched off in the popup, so pages
+     * there don't load Scope at all. Only hostnames: "file://" isn't
+     * registered anyway, and an IPv6 address can't be written as a
+     * pattern. A frame from another site on a switched-off page still
+     * loads, and turns itself off.
+     */
+    async function disabledPatterns() {
+        const { disabledSites = [] } =
+            await browser.storage.local.get("disabledSites");
+
+        return disabledSites
+            .filter(site => /^[a-z0-9.-]+$/i.test(site))
+            .map(site => `*://${site}/*`);
+    }
+
     // Registers the content scripts while the all-sites permission is
     // granted and removes them when it isn't. The permission can also be
     // changed in about:addons, so this follows it rather than the popup.
-    // A registration kept from an older version is brought up to date.
+    // The registration is replaced rather than updated, since an update
+    // keeps the old excluded sites when there are none left to pass.
     async function syncAlwaysReady() {
         const granted = await hasAllSites();
 
@@ -68,6 +85,16 @@
                 ids: [scriptId]
             })
         ).length > 0;
+
+        if (registered) {
+            await browser.scripting.unregisterContentScripts({
+                ids: [scriptId]
+            });
+        }
+
+        if (!granted) {
+            return;
+        }
 
         const script = {
             id: scriptId,
@@ -78,15 +105,13 @@
             persistAcrossSessions: true
         };
 
-        if (granted && !registered) {
-            await browser.scripting.registerContentScripts([script]);
-        } else if (granted) {
-            await browser.scripting.updateContentScripts([script]);
-        } else if (registered) {
-            await browser.scripting.unregisterContentScripts({
-                ids: [scriptId]
-            });
+        const excludeMatches = await disabledPatterns();
+
+        if (excludeMatches.length > 0) {
+            script.excludeMatches = excludeMatches;
         }
+
+        await browser.scripting.registerContentScripts([script]);
     }
 
     Scope.injection = { origins, start, hasAllSites, syncAlwaysReady };
