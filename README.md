@@ -41,7 +41,9 @@ To turn Scope off for a site, switch off **Run on this site** in the popup.
 - **Typography**: font family, size, weight, line height, and the font that
   is actually rendered
 - **Box**: margin, padding, size, border, radius, plus a box model diagram
-  with the regions shaded on the page
+  with the regions shaded on the page, and the space between the element's
+  children hatched with its size, like Figma's dev mode (turn off with
+  **Show gaps** in the popup)
 - **Layout**: display, position, overflow, transform, opacity, and flex/grid
   properties where they apply
 - **Accessibility** (off by default): accessible name, role, and whether the

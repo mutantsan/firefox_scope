@@ -4,11 +4,18 @@
 <style>
     body { font: 16px sans-serif; padding: 40px; }
     .cta { padding: 12px 24px; color: #fff; background: #0b57d0; border: 0; }
+    .stats { display: flex; gap: 16px; list-style: none; padding: 0; }
 </style>
 
 <button class="cta" aria-label="Buy now">Buy</button>
 
 <p><input id="field" placeholder="Type here"></p>
+
+<ul class="stats">
+    <li><a href="#">datasets</a></li>
+    <li><a href="#">organizations</a></li>
+    <li><a href="#">collections</a></li>
+</ul>
 
 <!-- Scope looks into shadow roots for the element under the pointer. -->
 <scope-card></scope-card>

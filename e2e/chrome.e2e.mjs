@@ -167,6 +167,42 @@ test("the keyboard shortcut starts Scope, and Shift inspects", async () => {
     await page.close();
 });
 
+test("inspecting a list shades the gaps between its items", async () => {
+    const { page, inScope, tooltip } = await openPage();
+
+    await page.bringToFront();
+    await worker.evaluate(() => globalThis.Scope.background.onCommand("start"));
+    await until(tooltip);
+
+    // Over the list itself, in the space between two items.
+    const list = await page.locator(".stats").boundingBox();
+    const item = await page.locator(".stats li").first().boundingBox();
+
+    await page.mouse.move(item.x + item.width + 8, list.y + list.height / 2);
+    await page.keyboard.down("Shift");
+
+    const labels = () => inScope(`[
+        ...globalThis.Scope.ui.root.querySelectorAll(".gap-label")
+    ]
+        .filter(el => el.style.display === "block")
+        .map(el => el.textContent)`);
+
+    const shown = await until(async () => {
+        const text = await labels();
+        return text?.length > 0 && text;
+    });
+
+    assert.deepEqual(shown, ["16", "16"]);
+
+    // Turning off Show gaps in the popup hides them straight away.
+    await worker.evaluate(() => chrome.storage.local.set({ showGaps: false }));
+    await until(async () => (await labels())?.length === 0);
+
+    await worker.evaluate(() => chrome.storage.local.remove("showGaps"));
+    await page.keyboard.up("Shift");
+    await page.close();
+});
+
 test("with always ready, the first Shift press loads Scope", async () => {
     const { page, inScope, tooltip } = await openPage();
 

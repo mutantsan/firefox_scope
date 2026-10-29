@@ -5,19 +5,23 @@
     const siteLabel = document.getElementById("site");
     const siteDesc = document.getElementById("site-desc");
     const status = document.getElementById("status");
-    const showDefaultsCheckbox = document.getElementById("show-defaults");
 
-    // Global, so it's set up before the site check below can bail out.
-    const { showDefaultValues = true } =
-        await browser.storage.local.get("showDefaultValues");
+    // Global switches, on by default, keyed by their storage key. Set up
+    // before the site check below can bail out.
+    const switches = {
+        showDefaultValues: document.getElementById("show-defaults"),
+        showGaps: document.getElementById("show-gaps")
+    };
 
-    showDefaultsCheckbox.checked = showDefaultValues;
+    const switchSettings = await browser.storage.local.get(Object.keys(switches));
 
-    showDefaultsCheckbox.addEventListener("change", () => {
-        browser.storage.local.set({
-            showDefaultValues: showDefaultsCheckbox.checked
+    for (const [key, checkbox] of Object.entries(switches)) {
+        checkbox.checked = switchSettings[key] ?? true;
+
+        checkbox.addEventListener("change", () => {
+            browser.storage.local.set({ [key]: checkbox.checked });
         });
-    });
+    }
 
     // One pill per tooltip row, unchecked when the row is hidden.
     const { propertyGroups, hiddenByDefault, hiddenKeys, propertyLabel } =

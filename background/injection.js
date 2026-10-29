@@ -19,6 +19,7 @@
         "/content/fonts.js",
         "/content/styles.js",
         "/content/overlays.js",
+        "/content/gaps.js",
         "/content/measure.js",
         "/content/tooltip.js",
         "/content/render.js",

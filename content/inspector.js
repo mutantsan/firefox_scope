@@ -3,11 +3,13 @@
     "use strict";
 
     const {
-        ui, tree, properties, styles, accessibility, render, tooltip, overlays, measure
+        ui, tree, properties, styles, accessibility, render, tooltip, overlays,
+        gaps, measure
     } = Scope;
 
     let enabled = true;
     let showDefaultValues = true;
+    let showGaps = true;
     let hiddenProperties = properties.hiddenKeys();
     let storedHidden = [];
     let storedShown = [];
@@ -24,6 +26,7 @@
         inspectedElement = null;
         observeInspected(null);
         overlays.hide();
+        gaps.hide();
         measure.hide();
     }
 
@@ -220,6 +223,12 @@
 
         inspectedElement = el;
         overlays.show(el);
+
+        if (showGaps) {
+            gaps.show(el);
+        } else {
+            gaps.hide();
+        }
     }
 
     // Follows the inspected element when it changes size without a scroll
@@ -743,6 +752,7 @@
     // per frame, however many scroll events arrive.
     function followInspected() {
         overlays.position(inspectedElement);
+        gaps.position();
         measure.position();
     }
 
@@ -878,6 +888,14 @@
         }
     }
 
+    function applyShowGaps(value = true) {
+        showGaps = value;
+
+        if (inspectedElement) {
+            inspectElement(inspectedElement);
+        }
+    }
+
     // Row keys from Scope.properties that are unchecked in the popup,
     // stored as hidden or, for rows hidden by default, not stored as shown.
     function applyHiddenProperties(hidden = storedHidden, shown = storedShown) {
@@ -892,10 +910,16 @@
 
     // resume() waits for these, so the first tooltip already has them.
     const settingsLoaded = browser.storage.local
-        .get(["disabledSites", "showDefaultValues", "hiddenProperties", "shownProperties"])
-        .then(({ disabledSites, showDefaultValues, hiddenProperties, shownProperties }) => {
+        .get([
+            "disabledSites", "showDefaultValues", "showGaps",
+            "hiddenProperties", "shownProperties"
+        ])
+        .then(({
+            disabledSites, showDefaultValues, showGaps, hiddenProperties, shownProperties
+        }) => {
             applyDisabledSites(disabledSites);
             applyShowDefaultValues(showDefaultValues);
+            applyShowGaps(showGaps);
             applyHiddenProperties(hiddenProperties, shownProperties);
         });
 
@@ -910,6 +934,10 @@
 
         if (changes.showDefaultValues) {
             applyShowDefaultValues(changes.showDefaultValues.newValue);
+        }
+
+        if (changes.showGaps) {
+            applyShowGaps(changes.showGaps.newValue);
         }
 
         if (changes.hiddenProperties || changes.shownProperties) {
