@@ -45,6 +45,16 @@ test("gapRects skips touching, overlapping and diagonal items", () => {
     assert.deepEqual(gapRects([box(0, 0, 50, 20), box(60, 30, 50, 20)]), []);
 });
 
+test("gapRects skips space another item sits in", () => {
+    // An inline tag whose box reaches into the heading below it, then a
+    // paragraph: no gap from the tag past the heading to the paragraph.
+    const rects = gapRects([box(0, 0, 30, 24), box(0, 20, 200, 30), box(0, 66, 200, 40)]);
+
+    assert.deepEqual(rects, [
+        { left: 0, right: 200, top: 50, bottom: 66, horizontal: false }
+    ]);
+});
+
 // Just enough of an element for laidOutChildren: its children and the
 // computed style it reads.
 function el(style = {}, children = []) {

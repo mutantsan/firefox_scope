@@ -75,12 +75,22 @@
      * side by side on one axis, sharing part of the other. Taking the
      * nearest box in each direction, not the next one in source order,
      * also finds the gaps between rows of a grid or of wrapped flex items.
+     * Space another box sits in isn't a gap, like the space from an inline
+     * box that overlaps the heading below it to the paragraph past that.
      *
      * Returns rectangles as { left, top, right, bottom, horizontal }, where
      * horizontal means the gap runs across the x axis, between columns.
      */
     function gapRects(boxes) {
         const result = [];
+
+        function covered(rect, a, b) {
+            return boxes.some(c =>
+                c !== a && c !== b &&
+                round(Math.min(c.right, rect.right) - Math.max(c.left, rect.left)) > 0 &&
+                round(Math.min(c.bottom, rect.bottom) - Math.max(c.top, rect.top)) > 0
+            );
+        }
         const seen = new Set();
 
         function add(rect) {
@@ -111,13 +121,17 @@
                     round(b.left - a.right) > 0 &&
                     (!right || b.left - a.right < right.right - right.left)
                 ) {
-                    right = {
+                    const rect = {
                         left: a.right,
                         right: b.left,
                         top: sharedTop,
                         bottom: sharedBottom,
                         horizontal: true
                     };
+
+                    if (!covered(rect, a, b)) {
+                        right = rect;
+                    }
                 }
 
                 if (
@@ -125,13 +139,17 @@
                     round(b.top - a.bottom) > 0 &&
                     (!below || b.top - a.bottom < below.bottom - below.top)
                 ) {
-                    below = {
+                    const rect = {
                         left: sharedLeft,
                         right: sharedRight,
                         top: a.bottom,
                         bottom: b.top,
                         horizontal: false
                     };
+
+                    if (!covered(rect, a, b)) {
+                        below = rect;
+                    }
                 }
             }
 
