@@ -194,6 +194,15 @@ test("inspecting a list shades the gaps between its items", async () => {
 
     assert.deepEqual(shown, ["16", "16"]);
 
+    // A grid whose items are in display: contents children has its gap too.
+    const card = await page.locator(".cards article").first().boundingBox();
+
+    await page.mouse.move(card.x + card.width + 6, card.y + card.height / 2);
+    assert.deepEqual(await until(async () => {
+        const text = await labels();
+        return text?.length === 1 && text;
+    }), ["12"]);
+
     // Turning off Show gaps in the popup hides them straight away.
     await worker.evaluate(() => chrome.storage.local.set({ showGaps: false }));
     await until(async () => (await labels())?.length === 0);

@@ -146,18 +146,31 @@
     }
 
     // Children laid out in the parent's flow: hidden and out-of-flow ones
-    // don't make gaps, and display: contents ones have no box.
+    // don't make gaps. A display: contents one has no box, so its own
+    // children are laid out in its place, like a grid of cards each in an
+    // `<li style="display: contents">`.
     function laidOutChildren(el) {
-        return Array.from(el?.children ?? [])
-            .filter(child => {
+        const result = [];
+
+        function collect(parent) {
+            for (const child of parent?.children ?? []) {
+                if (result.length >= maxChildren) {
+                    return;
+                }
+
                 const { display, position } = window.getComputedStyle(child);
 
-                return display !== "none" &&
-                    display !== "contents" &&
-                    position !== "absolute" &&
-                    position !== "fixed";
-            })
-            .slice(0, maxChildren);
+                if (display === "contents") {
+                    collect(child);
+                } else if (display !== "none" && position !== "absolute" && position !== "fixed") {
+                    result.push(child);
+                }
+            }
+        }
+
+        collect(el);
+
+        return result;
     }
 
     function clamp(n, min, max) {
@@ -227,5 +240,5 @@
         hideFrom(0);
     }
 
-    Scope.gaps = { show, hide, position, gapRects };
+    Scope.gaps = { show, hide, position, gapRects, laidOutChildren };
 })(globalThis.Scope ??= {});

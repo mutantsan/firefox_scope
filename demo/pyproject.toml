@@ -1,6 +1,6 @@
 # Settings for the demo video, read by ckan-demo; not a Python project.
 [tool.ckan-demo]
-portal = "http://127.0.0.1:5000"
+portal = "https://developer.mozilla.org"
 output = "output"
 music = "music.mp3"
 

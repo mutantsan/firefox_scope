@@ -1,12 +1,13 @@
-"""Scope on a CKAN portal: inspect, pin and copy, spacing and measuring, settings.
+"""Scope on MDN's home page: inspect, pin and copy, spacing and measuring, settings.
 
     npm run build:chrome
-    ckan-demo record demo/scenario.py --portal http://127.0.0.1:5000
+    ckan-demo record demo/scenario.py
 
 Recorded with ckan-demo (https://github.com/DataShades/ckan-demo) in Chromium,
 the only browser Playwright can load extensions in; the page looks the same
-in Firefox. Works on any CKAN 2.10+ portal with two or more public datasets,
-and needs no API token: Scope only reads the page.
+in Firefox. ckan-demo records any site, and with no users or setup here it
+never talks to CKAN. MDN is live, so if a scene fails, check its selectors
+against the page first.
 """
 
 from __future__ import annotations
@@ -28,12 +29,29 @@ scenario = Scenario(
     transition="crossfade:0.6",
 )
 
-DATASET_LINKS = ".dataset-heading a"
+HOME = "/en-US/"
+NAV_TABS = "nav.menu .menu__tab-button"
+ARTICLES = ".featured-articles__article"
+
+# MDN's ad slots: a banner above the header, one under the hero and one
+# above the footer. Removed as they're added, since a style tag doesn't stick.
+HIDE_ADS = """
+new MutationObserver(() => {
+    for (const el of document.querySelectorAll(
+        ".page-layout__banner, mdn-placement-top, mdn-placement-hp-main, mdn-placement-bottom"
+    )) {
+        el.remove();
+    }
+}).observe(document, { childList: true, subtree: true });
+"""
 
 
 def ready(d: Director) -> None:
-    """Off camera: wait until Always ready has registered its loader, which
-    the extension does once it's installed."""
+    """Off camera: hide MDN's ads, keep the recording out of its telemetry,
+    and wait until Always ready has registered its loader, which the
+    extension does once it's installed."""
+    d.page.add_init_script(HIDE_ADS)
+    d.page.route("https://incoming.telemetry.mozilla.org/**", lambda route: route.abort())
     scope = d.extension()
     for _ in range(100):
         if scope.evaluate("async () => (await chrome.scripting.getRegisteredContentScripts()).length"):
@@ -85,13 +103,14 @@ def part(d: Director, selector: str, text: str | None = None, *, row: str | None
     return box
 
 
-def between(first: Locator, second: Locator) -> dict[str, float]:
-    """The gap between two elements side by side."""
+def under(first: Locator, second: Locator) -> dict[str, float]:
+    """The right end of the gap between two elements one above the other,
+    so the tooltip opens past their parent rather than over it."""
     a, b = first.bounding_box(), second.bounding_box()
     if a is None or b is None:
         raise RuntimeError("both elements must be on screen")
-    left = a["x"] + a["width"]
-    return {"x": left, "y": a["y"], "width": max(b["x"] - left, 1), "height": a["height"]}
+    bottom = a["y"] + a["height"]
+    return {"x": a["x"] + a["width"] - 12, "y": bottom, "width": 4, "height": max(b["y"] - bottom, 1)}
 
 
 def explain(d: Director, text: str, *, position: str = "bottom") -> None:
@@ -105,20 +124,20 @@ def explain(d: Director, text: str, *, position: str = "bottom") -> None:
 def inspect(d: Director) -> None:
     """Hold Shift over elements to see their styles."""
     ready(d)
-    d.goto("/dataset/")
+    d.goto(HOME)
     d.card("Firefox and Chrome extension", "Scope", "Check an element's CSS without opening DevTools.", hold=3.5)
 
     explain(d, "Hold Shift over any element to see its styles")
-    heading = d.page.locator(DATASET_LINKS).first
-    d.point(heading)
+    d.point(d.page.locator(".homepage-hero h1"))
     with d.hold("Shift"):
         shown(d)
         d.pause(4)  # colours with contrast, typography, box, layout
 
-        # Move to inspect another; the format label has its own colours.
-        d.point(d.page.locator(".dataset-resources .badge, .dataset-resources a").first)
+        # Move to inspect another: a link on the dark hero, then small
+        # text on the light part of the page below it.
+        d.point(d.page.locator(".homepage-hero a").first)
         d.pause(3)
-        d.point(d.page.locator(".nav-facet .item-count").first)
+        d.point(d.page.locator(".featured-articles__tag").first)
         d.pause(3.5)
 
     d.caption("Let go of Shift and it's gone", hold="read")
@@ -129,37 +148,38 @@ def inspect(d: Director) -> None:
 def pin(d: Director) -> None:
     """Pin the tooltip, copy a value, move around the element tree."""
     ready(d)
-    d.goto("/dataset/")
+    d.goto(HOME)
 
     explain(d, "Shift+click to pin the tooltip")
-    login = d.page.locator("header a.btn, header .btn").first
-    d.point(login)
+    tab = d.page.locator(NAV_TABS).nth(1)  # CSS
+    d.point(tab)
     with d.hold("Shift"):
         shown(d)
-        d.click(login)  # Scope swallows the click, so the link isn't followed
+        d.click(tab)  # Scope swallows the click, so the menu doesn't open
     d.pause(1.5)
 
     # A pinned tooltip on the right leaves the top free for captions.
-    d.caption("Click a value to copy it", position="top")
-    d.click(value(d, "background-color"))
+    d.caption("Click a value to copy it")
+    d.click(value(d, "color"))
     d.pause(2)
-    d.caption("or the copy button for every row, as CSS", position="top")
+    d.caption("or the copy button for every row, as CSS")
     d.click(part(d, ".icon-button"))
     d.pause(2.5)
 
-    # The parent is the nav bar at the top, under where captions go.
-    explain(d, "Arrow keys walk the element tree", position="top")
+    # The tab's parents are in the header, under where captions go, so
+    # each caption is gone before its keys are pressed.
+    explain(d, "Arrow keys walk the element tree")
     d.press("ArrowUp", badge=True)
     d.pause(1.5)
     d.press("ArrowUp", badge=True)
     d.pause(1.5)
     d.press("ArrowDown", badge=True)
     d.pause(1.5)
-    explain(d, "Or click any part of its path", position="top")
-    d.click(part(d, ".crumb", "nav.navbar"))
+    explain(d, "Or click any part of its path")
+    d.click(part(d, ".crumb", "nav.navigation"))
     d.pause(2.5)
 
-    explain(d, "Esc closes it", position="top")
+    explain(d, "Esc closes it")
     d.press("Escape", badge=True)
     d.pause(1)
 
@@ -173,25 +193,28 @@ def value(d: Director, row: str) -> dict[str, float]:
 def spacing(d: Director) -> None:
     """Margins, padding and gaps on the page, then measure with Alt."""
     ready(d)
-    d.goto("/dataset/")
+    d.goto(HOME)
 
+    # A card on the right, between its title and summary, so the card is
+    # what's inspected and the tooltip opens beside it. Over the grid of
+    # cards, the tooltip would cover the gaps it shows.
     explain(d, "Margin, padding and the gaps between children show on the page")
-    items = d.page.locator("header nav li")
-    d.point(between(items.nth(0), items.nth(1)))
+    card = d.page.locator(ARTICLES).nth(1)
+    d.point(under(card.locator(".featured-articles__title"), card.locator(".featured-articles__summary")))
     with d.hold("Shift"):
         shown(d)
         d.pause(4)
 
     explain(d, "Hold Alt and point at another element to measure the distance")
-    headings = d.page.locator(DATASET_LINKS)
-    d.point(headings.nth(0))
+    titles = d.page.locator(".featured-articles__title")
+    d.point(titles.nth(0))
     with d.hold("Shift"):
         shown(d)
         d.pause(1)
         with d.hold("Alt"):
-            d.point(headings.nth(1))
+            d.point(titles.nth(1))
             d.pause(2.5)
-            d.point(d.page.locator("h1").first)
+            d.point(d.page.get_by_role("heading", name="Featured articles"))
             d.pause(2.5)
         d.pause(0.5)
 
@@ -200,7 +223,7 @@ def spacing(d: Director) -> None:
 def settings(d: Director) -> None:
     """The toolbar popup: switches and tooltip rows, then the accessibility rows."""
     ready(d)
-    d.goto("/dataset/")
+    d.goto(HOME)
 
     d.caption("Its toolbar button opens the settings")
     popup = d.open_popup()
@@ -215,13 +238,12 @@ def settings(d: Director) -> None:
     d.close_popup()
 
     explain(d, "Now it shows the accessible name, role and keyboard focus too")
-    # An icon button, named by its aria-label. Its edge, past the icon.
-    theme = d.page.locator("[data-module=theme-toggle]").first
-    if not theme.count():
-        theme = d.page.locator("form button[type=submit]").first
+    # The theme switcher, named by its aria-label, in an open shadow root
+    # that both Playwright and Scope reach into. Its edge, past the icon.
+    theme = d.page.locator("mdn-color-theme button.color-theme__button")
     box = theme.bounding_box()
     if box is None:
-        raise RuntimeError("no icon button on the page")
+        raise RuntimeError("no theme switcher on the page")
     d.point({"x": box["x"] + 2, "y": box["y"] + box["height"] / 2 - 1, "width": 2, "height": 2})
     with d.hold("Shift"):
         shown(d)

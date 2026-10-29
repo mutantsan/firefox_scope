@@ -44,3 +44,31 @@ test("gapRects skips touching, overlapping and diagonal items", () => {
     assert.deepEqual(gapRects([box(0, 0, 50, 20), box(40, 0, 50, 20)]), []);
     assert.deepEqual(gapRects([box(0, 0, 50, 20), box(60, 30, 50, 20)]), []);
 });
+
+// Just enough of an element for laidOutChildren: its children and the
+// computed style it reads.
+function el(style = {}, children = []) {
+    return { style: { display: "block", position: "static", ...style }, children };
+}
+
+test("laidOutChildren skips hidden and out-of-flow children", () => {
+    globalThis.window = { getComputedStyle: node => node.style };
+
+    const shown = el();
+    const parent = el({}, [shown, el({ display: "none" }), el({ position: "absolute" }), el({ position: "fixed" })]);
+
+    assert.deepEqual(Scope.gaps.laidOutChildren(parent), [shown]);
+});
+
+test("laidOutChildren lays out a display: contents child's children in its place", () => {
+    globalThis.window = { getComputedStyle: node => node.style };
+
+    const [a, b, c] = [el(), el(), el()];
+    const parent = el({ display: "grid" }, [
+        el({ display: "contents" }, [a]),
+        el({ display: "contents" }, [el({ display: "contents" }, [b])]),
+        c
+    ]);
+
+    assert.deepEqual(Scope.gaps.laidOutChildren(parent), [a, b, c]);
+});

@@ -5,6 +5,9 @@
     body { font: 16px sans-serif; padding: 40px; }
     .cta { padding: 12px 24px; color: #fff; background: #0b57d0; border: 0; }
     .stats { display: flex; gap: 16px; list-style: none; padding: 0; }
+    .cards { display: grid; grid-template-columns: 120px 120px; gap: 12px; list-style: none; padding: 0; }
+    .cards li { display: contents; }
+    .cards article { height: 40px; border: 1px solid #ccc; }
 </style>
 
 <button class="cta" aria-label="Buy now">Buy</button>
@@ -15,6 +18,12 @@
     <li><a href="#">datasets</a></li>
     <li><a href="#">organizations</a></li>
     <li><a href="#">collections</a></li>
+</ul>
+
+<!-- The grid's items are the cards, in display: contents list items. -->
+<ul class="cards">
+    <li><article>One</article></li>
+    <li><article>Two</article></li>
 </ul>
 
 <!-- Scope looks into shadow roots for the element under the pointer. -->
