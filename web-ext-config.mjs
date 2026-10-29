@@ -5,6 +5,7 @@ export default {
     ignoreFiles: [
         "AUDIT.md",
         "background/worker.js",
+        "demo",
         "dist",
         "e2e",
         "image.png",
